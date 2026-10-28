@@ -8,11 +8,12 @@ const createJestConfig = nextJest({
 
 // Configuración personalizada para Jest
 const customJestConfig = {
-  setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
+  setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
   testEnvironment: 'jest-environment-jsdom',
   testPathIgnorePatterns: ['/node_modules/', '/.next/', '/tests/e2e/'],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
+    '^server-only$': '<rootDir>/node_modules/next/dist/compiled/server-only/empty.js',
   },
   clearMocks: true,
 }

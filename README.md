@@ -29,7 +29,7 @@ El proyecto prioriza el pragmatismo y el rendimiento, seleccionando herramientas
    cd mini-wallet
    ```
 
-2. **Configurar variables de entorno** a partir del ejemplo:
+2. **Configurar variables de entorno** a partir del ejemplo (obligatorio: el servidor no arranca sin `SESSION_SECRET`):
    ```bash
    cp .env.example .env.local
    ```
@@ -50,6 +50,17 @@ El proyecto prioriza el pragmatismo y el rendimiento, seleccionando herramientas
    pnpm exec playwright install chromium
    ```
 
+## 👤 Usuarios de Demostración
+
+El login no usa contraseña: basta con el teléfono o el email (se aceptan espacios, guiones y el prefijo `+52` en el teléfono).
+
+| Usuario | Email | Teléfono |
+|---------|-------|----------|
+| Ana García | `ana@miniwallet.dev` | `5512345678` |
+| Luis Pérez | `luis@miniwallet.dev` | `5587654321` |
+
+Con `ENABLE_TEST_SCENARIOS=true`, el email `error@miniwallet.dev` simula un servicio no disponible para mostrar el estado de error.
+
 ## 📜 Scripts Disponibles
 
 | Script | Descripción |
@@ -66,9 +77,10 @@ El proyecto prioriza el pragmatismo y el rendimiento, seleccionando herramientas
 
 Para mantener el enfoque en la arquitectura del frontend dentro del alcance de la PoC, el sistema presenta las siguientes limitaciones intencionales:
 
-1. **Persistencia volátil:** los datos de sesión, contactos creados, reducción de saldo y movimientos recientes se guardan en memoria en la capa de API Routes (servidor simulado). Al reiniciar el servidor, los datos vuelven a su estado inicial.
+1. **Persistencia volátil:** los contactos creados, reducción de saldo y movimientos recientes se guardan en memoria en la capa de API Routes (servidor simulado). Al reiniciar el servidor, los datos vuelven a su estado inicial.
 2. **Aleatoriedad determinista (testing):** la pantalla de confirmación genera 5 escenarios aleatorios. Para probar el sistema sin inestabilidad (*flakiness*), los tests envían el header `x-mock-scenario`, que solo se respeta si `ENABLE_TEST_SCENARIOS=true`.
-3. **Autenticación mockeada:** no se implementa JWT; solo validación de formato y sesión simulada mediante cookie.
+3. **Autenticación mockeada:** no hay contraseña ni factor de autenticación real; solo validación de formato y una sesión de 30 minutos en una cookie firmada (HMAC) que sobrevive a reinicios del servidor.
+4. **Sin regreso a la ruta solicitada:** tras el login siempre se navega al Home, aunque el usuario hubiera intentado abrir otra página privada.
 
 ## 📚 Documentación Adjunta
 
