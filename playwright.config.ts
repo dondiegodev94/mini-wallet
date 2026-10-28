@@ -1,6 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const PORT = Number(process.env.PORT ?? 3000);
+// Puerto dedicado para no reutilizar un `pnpm dev` levantado con otra configuración.
+const PORT = Number(process.env.E2E_PORT ?? 3100);
 const baseURL = `http://localhost:${PORT}`;
 
 export default defineConfig({
@@ -21,6 +22,9 @@ export default defineConfig({
     command: process.env.CI ? `pnpm start --port ${PORT}` : `pnpm dev --port ${PORT}`,
     url: baseURL,
     reuseExistingServer: !process.env.CI,
-    env: { ENABLE_TEST_SCENARIOS: "true" },
+    env: {
+      ENABLE_TEST_SCENARIOS: "true",
+      SESSION_SECRET: process.env.SESSION_SECRET ?? "e2e-session-secret-with-at-least-32-chars",
+    },
   },
 });
