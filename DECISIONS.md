@@ -60,8 +60,9 @@ La estructura del proyecto sigue una arquitectura basada en capas funcionales. E
 ┃ ┃ ┃ ┣ 📜 page.tsx                 # Home (Partial Prerender + Suspense): saldo y movimientos
 ┃ ┃ ┃ ┣ 📂 _components              # WalletOverview (Server Component), LogoutButton (cliente)
 ┃ ┃ ┃ ┗ 📂 transfer
-┃ ┃ ┃   ┣ 📜 page.tsx               # Monto + selección/alta de contacto (CSR, Zustand)
-┃ ┃ ┃   ┣ 📂 review/page.tsx        # Resumen antes de confirmar
+┃ ┃ ┃   ┣ 📜 page.tsx               # Monto + destinatario + concepto (Partial Prerender; saldo y contactos en servidor)
+┃ ┃ ┃   ┣ 📂 _components            # TransferSetup (Server Component), TransferScreen (cliente)
+┃ ┃ ┃   ┣ 📂 review/page.tsx        # Resumen desde el store; sin borrador redirige a /transfer
 ┃ ┃ ┃   ┗ 📂 status/page.tsx        # Renderizado condicional de comprobante o errores
 ┃ ┃ ┣ 📜 globals.css                # Design Tokens (@theme de Tailwind v4)
 ┃ ┃ ┗ 📜 layout.tsx                 # Layout global
@@ -69,25 +70,28 @@ La estructura del proyecto sigue una arquitectura basada en capas funcionales. E
 ┃ ┣ 📂 domain                       # Capa 1: Reglas de Negocio (cero dependencias de React/Next)
 ┃ ┃ ┣ 📂 contracts                  # Contratos de la API validados con Zod (errores, respuestas)
 ┃ ┃ ┣ 📂 models                     # Tipos estables (User, Session, Movement, Contact…)
-┃ ┃ ┣ 📂 schemas                    # Esquemas Zod (login, contacto, transferencia)
-┃ ┃ ┗ 📂 rules                      # Reglas puras (monto > 0, saldo suficiente, destinatario)
+┃ ┃ ┣ 📂 schemas                    # Esquemas Zod compartidos por UI y API (login, contacto)
+┃ ┃ ┗ 📂 rules                      # Reglas puras (monto, transferencia, cuentas, moneda, movimientos)
 ┃ ┣ 📂 server                       # Solo servidor (`server-only`): nunca se empaqueta en el cliente
 ┃ ┃ ┣ 📂 auth                       # Token de sesión firmado y servicio de autenticación
 ┃ ┃ ┣ 📂 config                     # Variables de entorno validadas con Zod
 ┃ ┃ ┣ 📂 http                       # Respuestas de error homogéneas para los Route Handlers
 ┃ ┃ ┣ 📂 mock                       # Latencia y escenarios simulados (x-mock-scenario)
 ┃ ┃ ┣ 📂 users                      # Repositorio de usuarios semilla
+┃ ┃ ┣ 📂 contacts                   # Contactos por usuario en memoria (globalThis) y servicio
 ┃ ┃ ┗ 📂 wallet                     # Repositorio de cuentas y servicio de resumen
 ┃ ┣ 📂 application                  # Capa 2: Casos de Uso y Estado (Zustand + Custom Hooks)
 ┃ ┃ ┣ 📂 http                       # Cliente HTTP con timeout y validación de contratos
-┃ ┃ ┣ 📂 hooks                      # "Smart" Hooks (useLoginFlow, useTransferFlow) - Zero UI
-┃ ┃ ┗ 📂 store                      # Tiendas Zustand (useTransferStore para aislar re-renders)
+┃ ┃ ┣ 📂 navigation                 # Navegación completa (cierre de sesión)
+┃ ┃ ┣ 📂 hooks                      # "Smart" Hooks (useLoginFlow, useTransferForm, useCreateContact…) - Zero UI
+┃ ┃ ┗ 📂 store                      # Tiendas Zustand (useTransferStore: borrador + Idempotency-Key)
 ┃ ┗ 📂 ui                           # Capa 3: Design System y Componentes (Token-Driven)
-┃   ┣ 📂 components                 # "Dumb" Components genéricos (Button, Input, Card, Skeleton…) con CVA
-┃   ┣ 📂 features                   # Ensamblajes UI por feature (auth, home, layout)
+┃   ┣ 📂 components                 # "Dumb" Components genéricos (Button, MaskedField, SelectField…) con CVA
+┃   ┣ 📂 features                   # Ensamblajes UI por feature (auth, home, layout, transfer)
 ┃   ┗ 📂 utils
 ┃     ┣ 📜 cn.ts                    # Utilidad core para combinar Tailwind y CVA
-┃     ┗ 📜 format.ts                # Moneda (MXN, es-MX) y fechas (America/Mexico_City)
+┃     ┣ 📜 maskedInput.ts           # Edición con máscara: valor canónico y posición del cursor
+┃     ┗ 📜 format.ts                # Movimientos con signo y fechas (America/Mexico_City)
 ┣ 📂 tests
 ┃ ┗ 📂 e2e                          # Playwright (los unitarios viven junto al código: *.test.ts)
 ┣ 📜 IMPLEMENTATION_PLAN.md
@@ -129,7 +133,7 @@ La estructura del proyecto sigue una arquitectura basada en capas funcionales. E
 **Justificación:** Un `fetch` con cast (`as T`) acepta en silencio respuestas que no cumplen el contrato. Validar en la frontera convierte esos casos en un estado de error explícito que la UI sabe mostrar, y la unión discriminada obliga a los hooks a tratar cada tipo de fallo. Como el BFF vive en el mismo origen, no se necesita una URL base (`NEXT_PUBLIC_API_URL` se eliminó).
 
 ## 12. Montos en Centavos Enteros
-**Decisión:** Todo monto viaja y se almacena como entero en centavos (`balanceCents`, `amountCents`); el contrato Zod rechaza decimales. La conversión a pesos ocurre solo al formatear en la UI (`Intl.NumberFormat` `es-MX`/`MXN`).
+**Decisión:** Todo monto viaja y se almacena como entero en centavos (`balanceCents`, `amountCents`); el contrato Zod rechaza decimales. La conversión a pesos ocurre solo al formatear (`formatMoney` en `src/domain/rules/money.ts`, con `Intl.NumberFormat` `es-MX`/`MXN`). Vive en el dominio porque los mensajes de validación, que comparten UI y API, incluyen el saldo formateado.
 **Justificación:** La aritmética de punto flotante produce errores de redondeo (`0.1 + 0.2 !== 0.3`) inaceptables en un saldo. Con enteros, sumas y restas son exactas, y el signo de un movimiento lo da su tipo (`DEBIT`/`CREDIT`), no el número.
 
 ## 13. Estados Asíncronos del Home: Suspense + Error Boundary
@@ -140,3 +144,23 @@ La estructura del proyecto sigue una arquitectura basada en capas funcionales. E
 ## 14. Type-check con Tipos de Rutas Frescos
 **Decisión:** `pnpm type-check` ejecuta `next typegen` (que regenera `.next/types`) y `tsconfig.json` excluye `.next/dev`.
 **Justificación:** `.next/dev/types` solo lo actualiza `next dev`. Si se mueve o elimina una página con el servidor detenido, esos tipos quedan apuntando a archivos inexistentes y el type-check falla sin un error real en el código. Excluirlos evita tener que borrar `.next` en cada commit.
+
+## 15. Validación de la Transferencia en Capas
+**Decisión:** Las reglas del borrador (monto mayor a cero, menor o igual al saldo, destinatario obligatorio, concepto de hasta 40 caracteres) y las del contacto (longitud por tipo, Luhn, dígito de control de la CLABE, banco de catálogo) son funciones puras y esquemas Zod en `src/domain`. La UI las usa para dar retroalimentación inmediata y el API las vuelve a aplicar con exactamente el mismo código antes de cualquier efecto.
+**Justificación:** Una validación solo en el cliente se puede saltar con una llamada directa al API. Compartir el código evita que ambas capas diverjan. El servidor es la autoridad: solo él conoce el saldo real y los números de cuenta completos, por eso los duplicados de contacto se detectan únicamente en el API y la cuenta completa nunca vuelve al cliente (solo `•••• 1234`).
+
+## 16. Captura de Montos y Números de Cuenta con Máscara
+**Decisión:** El monto se escribe libremente con formato en vivo (`1234567.8` → `1,234,567.8`; al salir del campo, `1,234,567.80`). Solo se aceptan dígitos y un punto decimal: la coma es el separador de miles en `es-MX`, así que no puede usarse también como separador decimal. Un cambio que exceda 2 decimales o 7 dígitos enteros se descarta completo. El texto se convierte a centavos operando sobre la cadena (`"0.29"` → `29`), nunca multiplicando un `number`. Los números de cuenta solo aceptan dígitos y usan la máscara de su tipo: celular `2·4·4`, tarjeta `4·4·4·4` y CLABE `3·3·4·4·4`.
+**Justificación:** Un estilo "caja registradora" (`1` → `$0.01`) confunde en escritorio. Descartar un cambio completo evita que pegar `1.234,56` se convierta en silencio en `$1.23`. El componente `MaskedField` del Design System recibe `sanitize` y `format`; el cursor se reubica contando los caracteres significativos que quedan a su derecha, así no salta cuando el formato agrega separadores, y borrar un separador elimina el dígito contiguo.
+
+## 17. Idempotency-Key Ligada a la Intención de Transferencia
+**Decisión:** Al pasar al resumen, el store genera una clave UUID v4 (`crypto.randomUUID()`). La clave se conserva mientras el monto, el destinatario y el concepto no cambien, se regenera si alguno cambia y se descarta al cancelar, al terminar y al cerrar sesión. `POST /api/transactions` (PR 6) la exige en el header `Idempotency-Key` ([`SPEC-CONF`](docs/specs/SPEC-CONF.md)).
+**Justificación:** Tras un timeout, el cliente no sabe si el cargo se aplicó. Reintentar con la misma clave permite que el servidor devuelva el resultado original sin cobrar dos veces. Si la clave se generara en cada envío, el reintento duplicaría la transferencia. Si se conservara tras editar el monto, el servidor rechazaría la solicitud por clave reutilizada con otro contenido.
+
+## 18. Cierre de Sesión con Navegación Completa
+**Decisión:** Al cerrar sesión, primero se descarta el borrador de transferencia y luego se navega a `/login` con `window.location.replace`, no con el router de Next.js.
+**Justificación:** Con `cacheComponents`, Next.js 16 conserva el estado de React de las rutas visitadas. Con una navegación interna, el siguiente usuario de la misma pestaña podría ver estado del anterior: el borrador del store, un contacto recién creado o lo capturado en un formulario. Recargar el documento descarta todo el estado del cliente de una sola vez, en lugar de depender de limpiar cada estado por separado.
+
+## 19. Estado del Servidor Simulado en `globalThis`
+**Decisión:** El repositorio de contactos guarda su estado en `globalThis`.
+**Justificación:** Las API Routes y los Server Components pueden cargarse como módulos separados, y el recargado en caliente reevalúa los módulos. Un `Map` a nivel de módulo podría duplicarse o reiniciarse, y entonces un contacto creado desde el API no aparecería en `/transfer`. `globalThis` da una única fuente en memoria por proceso, que es lo que simula la base de datos de la PoC.

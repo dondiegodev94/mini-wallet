@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Card } from "@/ui/components/Card/Card";
-import { formatMoney } from "@/ui/utils/format";
+import { formatMoney } from "@/domain/rules/money";
 
 type BalanceCardProps = {
   userName: string;
