@@ -4,7 +4,7 @@ Esta bitácora documenta el uso de herramientas IA durante el desarrollo, garant
 
 ## 1. Herramientas usadas y en qué partes
 * **Gemini:** Utilizado en la Fase 0 para estructurar ideas de arquitectura, plan de implementación, establecer la estructura de carpetas (Tree) y redactar el *scaffolding* de documentación inicial (`README.md`, `DECISIONS.md`).
-* **Claude Code:** Utilizado para proponer estrategias de commits atómicos (bajo las reglas de `AGENTS.md`), auditar el proyecto contra el alcance de la PoC y reestructurar el `IMPLEMENTATION_PLAN.md`, y aplicar el saneamiento de cimientos del PR 2 (Tailwind v4, ESLint flat config, CI, Playwright).
+* **Claude Code:** Utilizado para proponer estrategias de commits atómicos (bajo las reglas de `AGENTS.md`), auditar el proyecto contra el alcance de la PoC y reestructurar el `IMPLEMENTATION_PLAN.md`, y aplicar el saneamiento de cimientos del PR 2 (Tailwind v4, ESLint flat config, CI, Playwright). En el PR 3 redactó la spec `SPEC-AUTH` e implementó la feature de login y sesión con sus pruebas unitarias y E2E, validando cada capa con `type-check`, `lint`, `test`, `build` y `test:e2e` antes de proponer los commits.
 
 ## 2. Qué se aceptó directamente, corrigió o rechazó
 * **Rechazado (Uso directo de Tailwind en pantallas):** La IA suele sugerir mezclar lógica de React con clases de Tailwind inline. Esta sugerencia fue rechazada para priorizar la regla de "Componentes limpios" (Composición React).

@@ -96,7 +96,7 @@ Features: `AUTH` (login y sesión), `HOME` (dashboard), `CT` (contactos), `TX` (
 * **Objetivo:** infraestructura base, linters estrictos, validaciones pre-commit (Husky) y firmas GPG.
 * **Entregado:** Next.js 16 + TypeScript estricto, Tailwind + CVA + `cn.ts`, Jest + jest-dom, configuración de Stryker (paquetes diferidos), Husky + Commitlint + Lint-staged, pipeline de verificación de firmas GPG, plantilla de PR, `.env.example`, layout raíz y página base.
 
-### PR 2: Saneamiento de Cimientos y Andamiaje SDD 🚧 En revisión
+### PR 2: Saneamiento de Cimientos y Andamiaje SDD ✅ Completado
 * **Objetivo:** corregir los hallazgos de la revisión del PR 1 y dejar lista la infraestructura que todas las features necesitan (specs, E2E).
 * **Hallazgos a corregir** (validados con `pnpm build`, `pnpm lint` y `pnpm test`):
 
@@ -124,16 +124,17 @@ Features: `AUTH` (login y sesión), `HOME` (dashboard), `CT` (contactos), `TX` (
   * Actualizar `AGENTS.md` para permitir los tipos `fix` y `refactor` (necesarios a partir de las features).
 * **Nota:** los archivos no versionados en `src/domain/` (`models/types.ts`, `specs/contact.schema.ts`) no se commitean aquí; se reubican en la feature que los necesita (PR 3–6).
 
-### PR 3: Feature — Autenticación (Login) y Protección de Rutas · `SPEC-AUTH`
+### PR 3: Feature — Autenticación (Login) y Protección de Rutas · [`SPEC-AUTH`](docs/specs/SPEC-AUTH.md) 🚧 En revisión
 * **Objetivo:** flujo de entrada a la aplicación con sesión mockeada y rutas privadas.
-* **Spec (reglas derivadas a documentar):** identificador obligatorio; válido si es email o teléfono de 10 dígitos; normalización (trim, minúsculas en email, sin espacios ni prefijo `+52` en teléfono); error simulado determinista para pruebas; redirección a `/` tras login exitoso; acceso a `/login` con sesión activa redirige a `/`.
+* **Spec (reglas derivadas):** identificador obligatorio; válido si es email o teléfono de 10 dígitos; normalización (trim, minúsculas en email, sin espacios ni prefijo `+52` en teléfono); error simulado determinista (`error@miniwallet.dev`); sesión firmada de 30 minutos; páginas privadas por defecto; `/login` con sesión activa redirige a `/`.
 * **Entregables:**
-  * Dominio: modelos `User` y `Session`; `loginSchema` (Zod) con tests `[SPEC-AUTH-Rxx]`.
+  * Dominio: modelos `User` y `Session`; `loginSchema` (Zod); contratos `apiErrorBodySchema` y `loginResponseSchema`.
+  * Servidor: variables de entorno validadas, token de sesión HMAC, repositorio de usuarios semilla y servicio `authenticate`.
   * API: `POST /api/auth` valida con el mismo esquema, simula latencia y asigna la cookie httpOnly `mini-wallet-session`; `DELETE /api/auth` (logout).
-  * `src/proxy.ts`: chequeo optimista de la cookie que protege `/` y `/transfer/*` y redirige a `/login`. Los Route Handlers revalidan la sesión (el proxy no es la única barrera).
-  * Aplicación: hook `useLoginFlow` (estado idle / loading / error / success y navegación).
-  * UI: componentes DS `Button`, `Input`, `FormField` (CVA) y `LoginForm`.
-  * Tests: esquema, hook, `LoginForm`; E2E de login exitoso, error de validación, error simulado y redirección sin sesión.
+  * `src/proxy.ts`: privado por defecto (solo `/login` es pública); verifica la firma de la cookie y redirige.
+  * Aplicación: cliente `requestJson` (timeout + validación de contrato) y hook `useLoginFlow` (idle / submitting / error / success, sin doble envío).
+  * UI: componentes DS `Button`, `Input`, `TextField`, `Alert` y `Card` (CVA); `AuthLayout` y `LoginForm`; contenedor `LoginScreen`.
+  * Tests: 84 unitarios (esquema, sesión, servicio, Route Handler, proxy, cliente HTTP, hook y componentes) y 14 E2E (escritorio y móvil). E2E integrados al CI.
 
 ### PR 4: Feature — Dashboard (Home) · `SPEC-HOME`
 * **Objetivo:** visualizar el estado de cuenta con manejo asíncrono y responsivo.

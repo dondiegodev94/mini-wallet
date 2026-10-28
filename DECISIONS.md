@@ -47,7 +47,10 @@ La estructura del proyecto sigue una arquitectura basada en capas funcionales. E
 ┃ ┃ ┃ ┣ 📂 wallet/route.ts          # Saldo y movimientos recientes
 ┃ ┃ ┃ ┣ 📂 contacts/route.ts        # Listado y alta de contactos
 ┃ ┃ ┃ ┗ 📂 transactions/route.ts    # Motor de caos (Éxito, Red, Fondos, Timeout, Genérico)
-┃ ┃ ┣ 📂 login/page.tsx             # Shell SSR + formulario cliente (useLoginFlow)
+┃ ┃ ┣ 📂 login
+┃ ┃ ┃ ┣ 📜 page.tsx                 # Shell estático (Server Component)
+┃ ┃ ┃ ┗ 📂 _components              # Contenedores cliente: conectan hooks con componentes tontos
+┃ ┃ ┃   ┗ 📜 LoginScreen.tsx
 ┃ ┃ ┣ 📂 transfer
 ┃ ┃ ┃ ┣ 📜 page.tsx                 # Monto + selección/alta de contacto (CSR, Zustand)
 ┃ ┃ ┃ ┣ 📂 review/page.tsx          # Resumen antes de confirmar
@@ -55,18 +58,25 @@ La estructura del proyecto sigue una arquitectura basada en capas funcionales. E
 ┃ ┃ ┣ 📜 globals.css                # Design Tokens (@theme de Tailwind v4)
 ┃ ┃ ┣ 📜 layout.tsx                 # Layout global
 ┃ ┃ ┗ 📜 page.tsx                   # Home (SSR + Suspense): saldo y movimientos
-┃ ┣ 📜 proxy.ts                     # Protección optimista de rutas privadas (antes "middleware" en Next < 16)
+┃ ┣ 📜 proxy.ts                     # Páginas privadas por defecto; verifica la cookie firmada (antes "middleware")
 ┃ ┣ 📂 domain                       # Capa 1: Reglas de Negocio (cero dependencias de React/Next)
-┃ ┃ ┣ 📂 models                     # Tipos estables (User, Movement, Contact, TransactionResult)
+┃ ┃ ┣ 📂 contracts                  # Contratos de la API validados con Zod (errores, respuestas)
+┃ ┃ ┣ 📂 models                     # Tipos estables (User, Session, Movement, Contact…)
 ┃ ┃ ┣ 📂 schemas                    # Esquemas Zod (login, contacto, transferencia)
 ┃ ┃ ┗ 📂 rules                      # Reglas puras (monto > 0, saldo suficiente, destinatario)
-┃ ┣ 📂 server                       # Servicios y repositorios mock en memoria (solo servidor)
+┃ ┣ 📂 server                       # Solo servidor (`server-only`): nunca se empaqueta en el cliente
+┃ ┃ ┣ 📂 auth                       # Token de sesión firmado y servicio de autenticación
+┃ ┃ ┣ 📂 config                     # Variables de entorno validadas con Zod
+┃ ┃ ┣ 📂 http                       # Respuestas de error homogéneas para los Route Handlers
+┃ ┃ ┣ 📂 mock                       # Latencia simulada
+┃ ┃ ┗ 📂 users                      # Repositorio de usuarios semilla
 ┃ ┣ 📂 application                  # Capa 2: Casos de Uso y Estado (Zustand + Custom Hooks)
+┃ ┃ ┣ 📂 http                       # Cliente HTTP con timeout y validación de contratos
 ┃ ┃ ┣ 📂 hooks                      # "Smart" Hooks (useLoginFlow, useTransferFlow) - Zero UI
 ┃ ┃ ┗ 📂 store                      # Tiendas Zustand (useTransferStore para aislar re-renders)
 ┃ ┗ 📂 ui                           # Capa 3: Design System y Componentes (Token-Driven)
-┃   ┣ 📂 components                 # "Dumb" Components genéricos (Button, Input, Card…) con CVA
-┃   ┣ 📂 features                   # Ensamblajes UI complejos (MovementList, TransferSummary…)
+┃   ┣ 📂 components                 # "Dumb" Components genéricos (Button, Input, TextField, Alert, Card) con CVA
+┃   ┣ 📂 features                   # Ensamblajes UI por feature (auth/LoginForm, MovementList…)
 ┃   ┗ 📂 utils
 ┃     ┗ 📜 cn.ts                    # Utilidad core para combinar Tailwind y CVA
 ┣ 📂 tests
@@ -84,7 +94,7 @@ La estructura del proyecto sigue una arquitectura basada en capas funcionales. E
 ### Justificación de la Estructura
 
 *   **Aislamiento del Dominio (`src/domain/`)**: Toda la validación requerida por el negocio (monto mínimo, saldo suficiente y destinatario obligatorio) reside como esquemas abstractos (`Zod`) en la capa de dominio. Esto permite que tanto el frontend (`src/application/hooks`) como el backend simulado (`app/api/`) consuman **exactamente la misma fuente de verdad**, garantizando consistencia y evitando duplicación de código.
-*   **Hooks Inteligentes, Componentes Tontos (`src/application/` vs `src/ui/`)**: La carpeta `ui/` tiene prohibido importar de `api/` o ejecutar lógica de validación. La pantalla de confirmación, que debe reaccionar a 5 escenarios distintos, simplemente renderiza propiedades (props). Es el hook `useTransferFlow` (`application/`) quien orquesta la llamada asíncrona, intercepta los errores y alimenta la UI.
+*   **Hooks Inteligentes, Componentes Tontos (`src/application/` vs `src/ui/`)**: La carpeta `ui/` tiene prohibido importar de `api/`, de `application/` o ejecutar lógica de validación. La unión entre ambos ocurre en contenedores cliente dentro de `_components` de cada ruta (ej. `LoginScreen` invoca `useLoginFlow` y pasa props a `LoginForm`). La pantalla de confirmación, que debe reaccionar a 5 escenarios distintos, simplemente renderiza propiedades (props). Es el hook `useTransferFlow` (`application/`) quien orquesta la llamada asíncrona, intercepta los errores y alimenta la UI.
 *   **Design System Aislado (`src/ui/components` y `@theme` en `globals.css`)**: Al centralizar los estilos en Tailwind pero limitando su uso a componentes base envueltos con CVA (`class-variance-authority`), garantizamos un renderizado predecible. Si cambian los lineamientos de diseño, solo se modifica la configuración de Tailwind o los archivos base en `ui/components/`, mitigando drásticamente el riesgo de inyectar bugs lógicos por un cambio estético y manteniendo las vistas de la aplicación completamente limpias.
 
 ## 7. Estrategia de Calidad y Seguridad en Commits (Iniciativa Propia)
@@ -96,3 +106,15 @@ La estructura del proyecto sigue una arquitectura basada en capas funcionales. E
 ## 8. Metodología: Specification-Driven Development por Feature
 **Decisión:** Entregar la aplicación en *vertical slices* (una feature completa por PR) y documentar cada feature como especificación (`docs/specs/SPEC-<FEATURE>.md`) antes de implementarla.
 **Justificación:** Cada elemento del alcance de la PoC se traduce en reglas derivadas (`SPEC-<FEATURE>-Rxx`) y criterios de aceptación (`SPEC-<FEATURE>-ACxx`) con ID. Los tests citan esos IDs, lo que da trazabilidad completa: Alcance → Spec → Código → Test. Construir por feature (en lugar de por capa) evita crear componentes, modelos o servicios que ninguna pantalla consume todavía. El detalle del ciclo está en `IMPLEMENTATION_PLAN.md`.
+
+## 9. Sesión: Cookie Firmada sin Estado
+**Decisión:** La sesión es un token `payload.firma` (HMAC-SHA256 con `SESSION_SECRET`) guardado en la cookie `httpOnly` `mini-wallet-session`, con expiración de 30 minutos. No se usa un almacén de sesiones en memoria.
+**Justificación:** Un `Map` en memoria se pierde con cada reinicio o recarga en caliente del servidor y no se comparte entre instancias, lo que en un entorno de alto volumen obliga a sesiones "pegajosas". Un token firmado se verifica en cualquier instancia (proxy, Route Handlers, Server Components) sin consultar estado compartido. Se usa `node:crypto` con comparación en tiempo constante (`timingSafeEqual`) porque el proxy de Next.js 16 corre en el runtime de Node.js. **Trade-off:** no se puede revocar una sesión individual antes de su expiración; en producción se complementaría con una lista de revocación o un almacén de sesiones distribuido.
+
+## 10. Protección de Rutas: Privado por Defecto
+**Decisión:** `src/proxy.ts` corre en todas las páginas (excepto API Routes y assets estáticos) y solo `/login` es pública.
+**Justificación:** Con una lista de rutas protegidas, cada página nueva queda expuesta hasta que alguien recuerde agregarla. Invertir la regla hace que el olvido falle de forma segura. El proxy solo realiza un chequeo optimista (verifica la firma de la cookie, sin consultar datos); los Route Handlers privados revalidan la sesión antes de acceder a los datos.
+
+## 11. Contratos HTTP Validados en el Cliente
+**Decisión:** El cliente consume el BFF con rutas relativas (`/api/...`) mediante `requestJson`, que aplica timeout con `AbortController` y valida la respuesta con el esquema Zod del contrato (`src/domain/contracts`). Los errores se modelan como una unión discriminada (`http`, `timeout`, `network`, `unexpected-response`).
+**Justificación:** Un `fetch` con cast (`as T`) acepta en silencio respuestas que no cumplen el contrato. Validar en la frontera convierte esos casos en un estado de error explícito que la UI sabe mostrar, y la unión discriminada obliga a los hooks a tratar cada tipo de fallo. Como el BFF vive en el mismo origen, no se necesita una URL base (`NEXT_PUBLIC_API_URL` se eliminó).
