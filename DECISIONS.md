@@ -5,9 +5,10 @@ Este documento registra los trade-offs y decisiones técnicas tomadas para cumpl
 ## 1. Enrutamiento y Renderizado: App Router (Next.js)
 **Decisión:** Uso de `src/app/` para combinar Server Components (SSR) y Client Components (CSR), con Cache Components y Partial Prerendering de Next.js 16.
 **Justificación por página:**
-* **Login:** shell estático prerenderizado + formulario como Client Component (la interacción es 100% del cliente).
-* **Home:** *Partial Prerender*. El encabezado y el skeleton se sirven como HTML estático instantáneo y el resumen (que depende de la cookie de sesión) se renderiza en el servidor y llega por *streaming* dentro de `<Suspense>`. El usuario ve estructura de inmediato y nunca recibe datos de otra sesión desde una caché.
-* **Nueva Transacción:** altamente interactiva; CSR con estado en Zustand.
+* **Login (`/login`):** shell estático prerenderizado + formulario como Client Component (la interacción es 100% del cliente).
+* **Home (`/`):** *Partial Prerender*. El encabezado y el skeleton se sirven como HTML estático instantáneo y el resumen (que depende de la cookie de sesión) se renderiza en el servidor y llega por *streaming* dentro de `<Suspense>`. El usuario ve estructura de inmediato y nunca recibe datos de otra sesión desde una caché.
+* **Nueva Transacción (`/transfer`):** *Partial Prerender*. El saldo y los contactos se obtienen en el servidor (`TransferSetup`) y llegan por *streaming* con su skeleton; el formulario es un Client Component con el borrador en Zustand, porque la captura (formato en vivo, máscaras y validación inmediata) es interactiva.
+* **Resumen y estado (`/transfer/review`, `/transfer/status`):** Client Components. Dependen del borrador y del envío en curso, que viven solo en la memoria del navegador; sin ellos redirigen al formulario o al Home.
 
 ## 2. Gestión del Estado: Zustand
 **Decisión:** Elegido sobre Context API o Redux.
@@ -20,7 +21,7 @@ Este documento registra los trade-offs y decisiones técnicas tomadas para cumpl
 ## 4. Diseño y UI: "Enterprise Tailwind" (Tailwind CSS v4 + CVA)
 **Decisión:** Utilizar Tailwind CSS, pero restringir su uso estrictamente a la capa de abstracción del Design System (`src/ui/components`). No se usan CSS Modules ni estilos inline (bloqueados por ESLint).
 **Justificación:** Se busca el pragmatismo y la velocidad de desarrollo que ofrece Tailwind, pero evitando la "sopa de clases" en la lógica de negocio. Las pantallas de la aplicación consumen componentes limpios controlados por `class-variance-authority` (CVA), garantizando que si se cambia de framework CSS en el futuro, la refactorización se limite a una sola carpeta.
-**Tokens:** con Tailwind v4 los Design Tokens se declaran en CSS mediante `@theme` en `src/app/globals.css` (fuente única de verdad, sin `tailwind.config.ts`). El escaneo de clases se restringe con `source(none)` + `@source` a `src/app` y `src/ui`.
+**Tokens:** con Tailwind v4 los Design Tokens se declaran en CSS mediante `@theme` en `src/app/globals.css` (fuente única de verdad, sin `tailwind.config.ts`). El escaneo de clases se restringe con `source(none)` + `@source` a `src/app` y `src/ui`. Como cada utilidad compila a una variable CSS (`bg-primary` → `var(--color-primary)`), un cambio de paleta, de escala o un tema nuevo se hace redefiniendo variables, sin tocar componentes; el [`README.md`](README.md#-design-system) documenta cómo cambiar paleta, tamaños y fuente, crear temas y acoplar otro Design System.
 
 ## 5. Estrategia de Testing (Aleatoriedad vs Determinismo)
 **Decisión:** Jest (Unitario) + Playwright (E2E).
@@ -188,3 +189,49 @@ La estructura del proyecto sigue una arquitectura basada en capas funcionales. E
 ## 24. Cuentas Aisladas para las Pruebas E2E
 **Decisión:** Con `ENABLE_TEST_SCENARIOS=true`, `POST /api/test/accounts` crea un usuario nuevo a partir de los datos semilla de Ana o Luis (saldo, movimientos y contactos). Sin la variable, la ruta responde `404`.
 **Justificación:** Las E2E corren en paralelo en escritorio y móvil sobre el mismo servidor; si todas transfirieran desde Ana, el saldo esperado dependería del orden de ejecución. Una cuenta por prueba permite afirmar saldos exactos y no altera los datos de la demo. Clonar desde la semilla, no desde el estado actual, evita heredar cambios hechos durante la demo.
+
+## 25. Edge Cases Considerados
+Consolidado de las secciones "Edge cases" de cada spec; el detalle y la regla que cubre cada caso están en [`docs/specs/`](docs/specs/).
+
+**Autenticación ([`SPEC-AUTH`](docs/specs/SPEC-AUTH.md))**
+* Identificador con espacios, mayúsculas, guiones, paréntesis o prefijo `+52`: se normaliza. Un teléfono de 9 u 11 dígitos o con letras es inválido.
+* Cuerpo vacío, JSON inválido o sin `identifier`: `400`.
+* Doble clic en "Ingresar", servidor lento o sin conexión: un solo envío y un error del que se puede recuperar.
+* Cookie alterada, expirada o firmada con otro secreto: no hay sesión. `SESSION_SECRET` ausente o corto: el servidor falla con un mensaje de configuración explícito.
+
+**Home ([`SPEC-HOME`](docs/specs/SPEC-HOME.md))**
+* Más de 10 movimientos o recibidos en desorden: se ordenan y se muestran los 10 más recientes.
+* Saldo en `$0.00`: "Nueva transacción" sigue visible. Montos grandes con separador de miles y menores a un peso (`$0.50`).
+* Fechas cerca de la medianoche UTC que en `America/Mexico_City` caen en el día anterior.
+* Sesión que expira con el Home abierto y doble clic en "Cerrar sesión".
+
+**Nueva transacción y contactos ([`SPEC-TX`](docs/specs/SPEC-TX.md), [`SPEC-CT`](docs/specs/SPEC-CT.md))**
+* `0.29`, `0.07`, `1.10` y `9,999,999.99`: conversión exacta a centavos.
+* Pegar `$1,234.56` se acepta; pegar `1.234,56` o `1e5` se descarta completo. Un segundo punto, un octavo dígito entero o un tercer decimal no entran.
+* Borrar un separador con Retroceso borra el dígito contiguo, sin saltos del cursor, en el monto y en los números de cuenta.
+* Teclear solo `.` muestra `0.` y al salir queda `0.00`, que es inválido. Un monto igual al saldo es válido.
+* Editar desde el resumen regenera la `Idempotency-Key`; volver sin cambios la conserva.
+* Cambiar el tipo de cuenta vacía el número. Tarjeta con Luhn inválido o CLABE con dígito de control inválido. El mismo número en dos usuarios es válido. Doble clic en "Guardar contacto".
+* Solicitud manipulada al API (monto en cero, negativo, decimal o mayor al saldo; contacto ajeno; banco fuera del catálogo): la rechaza el servidor.
+
+**Confirmación ([`SPEC-CONF`](docs/specs/SPEC-CONF.md))**
+* Reintentar tras un timeout mientras el servidor sigue retrasando la respuesta original: el resultado ya almacenado se repite al instante.
+* "Atrás" durante el procesamiento: la solicitud continúa y el formulario aparece vacío.
+* El saldo baja entre abrir `/transfer` y confirmar: `INSUFFICIENT_FUNDS` real. Dos pestañas que juntas superan el saldo: solo una transferencia pasa.
+* Sesión expirada al confirmar: `401` y navegación a `/login`. Contacto que dejó de existir: error genérico.
+* Doble clic en "Confirmar transferencia": una sola solicitud. Conexión cortada al instante: la navegación al estado no se desvía.
+* Cuerpo con campos extra o JSON inválido: `400`.
+
+**Transversales**
+* Reinicio del servidor: vuelven los datos semilla (saldo, movimientos, contactos, claves de idempotencia y cuentas de prueba).
+* Cambio de usuario en la misma pestaña: el cierre de sesión recarga el documento y no queda estado del usuario anterior.
+
+## 26. Qué se Haría Diferente con Más Tiempo
+* **Configuración compartida fuera de `application`:** `transactionService` importa `TRANSFER_TIMEOUT_MS` de `src/application/config`, el único cruce del servidor hacia la capa de aplicación. Un módulo de configuración compartido por cliente y servidor eliminaría esa dependencia.
+* **Mensajes derivados de las constantes:** `TRANSFER_MESSAGES.conceptTooLong` repite el "40" de `CONCEPT_MAX_LENGTH`; generarlo desde la constante evita que un cambio de límite deje el mensaje desactualizado.
+* **Un código de error por regla en el servidor:** `transactionService` traduce cualquier error de monto a `INSUFFICIENT_FUNDS`. Hoy es correcto, porque el esquema rechaza antes los demás casos, pero una regla nueva (por ejemplo, un límite por operación) se reportaría como fondos insuficientes.
+* **Configuración regional centralizada:** `es-MX` y `MXN` aparecen en `domain/rules/money.ts`, `domain/rules/contacts.ts` y `ui/utils/format.ts`, y los textos de la UI viven en los componentes. Para varias monedas o idiomas se moverían a un módulo regional y a un catálogo de mensajes.
+* **Repositorios como interfaces inyectadas:** en lugar de objetos en `globalThis`, una interfaz por repositorio con una implementación en memoria para pruebas y otra real, lo que facilita conectar una base de datos.
+* **Pruebas visuales y de accesibilidad automatizadas:** capturas de Playwright para detectar regresiones del Design System (ninguna prueba verifica colores hoy) y `axe-core` en las E2E.
+* **Contratos publicados:** generar una especificación OpenAPI a partir de los esquemas Zod de `src/domain/contracts`.
+* **Mutation testing desde el inicio:** correr Stryker en el CI desde los primeros PRs, en lugar de dejarlo como entrega opcional al final.
