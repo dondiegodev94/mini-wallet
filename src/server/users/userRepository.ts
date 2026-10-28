@@ -11,4 +11,8 @@ export const userRepository = {
   async findByIdentifier(identifier: Identifier): Promise<User | undefined> {
     return SEED_USERS.find((user) => user[identifier.kind] === identifier.value);
   },
+
+  async findById(id: string): Promise<User | undefined> {
+    return SEED_USERS.find((user) => user.id === id);
+  },
 };

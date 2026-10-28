@@ -3,8 +3,11 @@
 Este documento registra los trade-offs y decisiones técnicas tomadas para cumplir con los requerimientos de escalabilidad, mantenibilidad y pragmatismo de la PoC. Se complementan algunas decisiones tomadas documentadas en el AI_USAGE.md para las decisiones que se tomaron sin la ayuda de la AI
 
 ## 1. Enrutamiento y Renderizado: App Router (Next.js)
-**Decisión:** Uso de `app/` para combinar Server Components (SSR) y Client Components (CSR).
-**Justificación:** El `Home` (saldo y usuario) se beneficia de SSR para carga inicial rápida, mientras que la `Nueva Transacción` es altamente interactiva y requiere CSR puro.
+**Decisión:** Uso de `src/app/` para combinar Server Components (SSR) y Client Components (CSR), con Cache Components y Partial Prerendering de Next.js 16.
+**Justificación por página:**
+* **Login:** shell estático prerenderizado + formulario como Client Component (la interacción es 100% del cliente).
+* **Home:** *Partial Prerender*. El encabezado y el skeleton se sirven como HTML estático instantáneo y el resumen (que depende de la cookie de sesión) se renderiza en el servidor y llega por *streaming* dentro de `<Suspense>`. El usuario ve estructura de inmediato y nunca recibe datos de otra sesión desde una caché.
+* **Nueva Transacción:** altamente interactiva; CSR con estado en Zustand.
 
 ## 2. Gestión del Estado: Zustand
 **Decisión:** Elegido sobre Context API o Redux.
@@ -51,13 +54,17 @@ La estructura del proyecto sigue una arquitectura basada en capas funcionales. E
 ┃ ┃ ┃ ┣ 📜 page.tsx                 # Shell estático (Server Component)
 ┃ ┃ ┃ ┗ 📂 _components              # Contenedores cliente: conectan hooks con componentes tontos
 ┃ ┃ ┃   ┗ 📜 LoginScreen.tsx
-┃ ┃ ┣ 📂 transfer
-┃ ┃ ┃ ┣ 📜 page.tsx                 # Monto + selección/alta de contacto (CSR, Zustand)
-┃ ┃ ┃ ┣ 📂 review/page.tsx          # Resumen antes de confirmar
-┃ ┃ ┃ ┗ 📂 status/page.tsx          # Renderizado condicional de comprobante o errores
+┃ ┃ ┣ 📂 (private)                  # Route group: páginas autenticadas (no altera la URL)
+┃ ┃ ┃ ┣ 📜 layout.tsx               # Encabezado común con "Cerrar sesión"
+┃ ┃ ┃ ┣ 📜 error.tsx                # Estado de error con reintento; el encabezado sigue visible
+┃ ┃ ┃ ┣ 📜 page.tsx                 # Home (Partial Prerender + Suspense): saldo y movimientos
+┃ ┃ ┃ ┣ 📂 _components              # WalletOverview (Server Component), LogoutButton (cliente)
+┃ ┃ ┃ ┗ 📂 transfer
+┃ ┃ ┃   ┣ 📜 page.tsx               # Monto + selección/alta de contacto (CSR, Zustand)
+┃ ┃ ┃   ┣ 📂 review/page.tsx        # Resumen antes de confirmar
+┃ ┃ ┃   ┗ 📂 status/page.tsx        # Renderizado condicional de comprobante o errores
 ┃ ┃ ┣ 📜 globals.css                # Design Tokens (@theme de Tailwind v4)
-┃ ┃ ┣ 📜 layout.tsx                 # Layout global
-┃ ┃ ┗ 📜 page.tsx                   # Home (SSR + Suspense): saldo y movimientos
+┃ ┃ ┗ 📜 layout.tsx                 # Layout global
 ┃ ┣ 📜 proxy.ts                     # Páginas privadas por defecto; verifica la cookie firmada (antes "middleware")
 ┃ ┣ 📂 domain                       # Capa 1: Reglas de Negocio (cero dependencias de React/Next)
 ┃ ┃ ┣ 📂 contracts                  # Contratos de la API validados con Zod (errores, respuestas)
@@ -68,17 +75,19 @@ La estructura del proyecto sigue una arquitectura basada en capas funcionales. E
 ┃ ┃ ┣ 📂 auth                       # Token de sesión firmado y servicio de autenticación
 ┃ ┃ ┣ 📂 config                     # Variables de entorno validadas con Zod
 ┃ ┃ ┣ 📂 http                       # Respuestas de error homogéneas para los Route Handlers
-┃ ┃ ┣ 📂 mock                       # Latencia simulada
-┃ ┃ ┗ 📂 users                      # Repositorio de usuarios semilla
+┃ ┃ ┣ 📂 mock                       # Latencia y escenarios simulados (x-mock-scenario)
+┃ ┃ ┣ 📂 users                      # Repositorio de usuarios semilla
+┃ ┃ ┗ 📂 wallet                     # Repositorio de cuentas y servicio de resumen
 ┃ ┣ 📂 application                  # Capa 2: Casos de Uso y Estado (Zustand + Custom Hooks)
 ┃ ┃ ┣ 📂 http                       # Cliente HTTP con timeout y validación de contratos
 ┃ ┃ ┣ 📂 hooks                      # "Smart" Hooks (useLoginFlow, useTransferFlow) - Zero UI
 ┃ ┃ ┗ 📂 store                      # Tiendas Zustand (useTransferStore para aislar re-renders)
 ┃ ┗ 📂 ui                           # Capa 3: Design System y Componentes (Token-Driven)
-┃   ┣ 📂 components                 # "Dumb" Components genéricos (Button, Input, TextField, Alert, Card) con CVA
-┃   ┣ 📂 features                   # Ensamblajes UI por feature (auth/LoginForm, MovementList…)
+┃   ┣ 📂 components                 # "Dumb" Components genéricos (Button, Input, Card, Skeleton…) con CVA
+┃   ┣ 📂 features                   # Ensamblajes UI por feature (auth, home, layout)
 ┃   ┗ 📂 utils
-┃     ┗ 📜 cn.ts                    # Utilidad core para combinar Tailwind y CVA
+┃     ┣ 📜 cn.ts                    # Utilidad core para combinar Tailwind y CVA
+┃     ┗ 📜 format.ts                # Moneda (MXN, es-MX) y fechas (America/Mexico_City)
 ┣ 📂 tests
 ┃ ┗ 📂 e2e                          # Playwright (los unitarios viven junto al código: *.test.ts)
 ┣ 📜 IMPLEMENTATION_PLAN.md
@@ -118,3 +127,16 @@ La estructura del proyecto sigue una arquitectura basada en capas funcionales. E
 ## 11. Contratos HTTP Validados en el Cliente
 **Decisión:** El cliente consume el BFF con rutas relativas (`/api/...`) mediante `requestJson`, que aplica timeout con `AbortController` y valida la respuesta con el esquema Zod del contrato (`src/domain/contracts`). Los errores se modelan como una unión discriminada (`http`, `timeout`, `network`, `unexpected-response`).
 **Justificación:** Un `fetch` con cast (`as T`) acepta en silencio respuestas que no cumplen el contrato. Validar en la frontera convierte esos casos en un estado de error explícito que la UI sabe mostrar, y la unión discriminada obliga a los hooks a tratar cada tipo de fallo. Como el BFF vive en el mismo origen, no se necesita una URL base (`NEXT_PUBLIC_API_URL` se eliminó).
+
+## 12. Montos en Centavos Enteros
+**Decisión:** Todo monto viaja y se almacena como entero en centavos (`balanceCents`, `amountCents`); el contrato Zod rechaza decimales. La conversión a pesos ocurre solo al formatear en la UI (`Intl.NumberFormat` `es-MX`/`MXN`).
+**Justificación:** La aritmética de punto flotante produce errores de redondeo (`0.1 + 0.2 !== 0.3`) inaceptables en un saldo. Con enteros, sumas y restas son exactas, y el signo de un movimiento lo da su tipo (`DEBIT`/`CREDIT`), no el número.
+
+## 13. Estados Asíncronos del Home: Suspense + Error Boundary
+**Decisión:** La carga se expresa con `<Suspense fallback={<WalletSkeleton />}>` y los fallos con `error.tsx` del route group `(private)`, usando `retry()` de Next.js 16 para volver a solicitar los datos. Las páginas privadas comparten un layout con el encabezado y "Cerrar sesión".
+**Justificación:** El componente que obtiene datos (`WalletOverview`) solo describe el caso feliz; carga y error son responsabilidad de los límites de React, no de banderas `isLoading`/`isError` repetidas en cada pantalla. Al ubicar `error.tsx` debajo del layout privado, un fallo reemplaza solo el contenido: el usuario conserva la navegación y la opción de cerrar sesión. Sin saldo confirmado se oculta "Nueva transacción", porque no sería posible validar el saldo suficiente.
+**Detalle técnico:** la verificación de la sesión llama `connection()` antes de leer el reloj. Con `partialPrefetching`, Next prerenderiza con cookies disponibles pero prohíbe la hora actual en el prerender; la vigencia de una sesión depende de la hora, así que debe evaluarse siempre en tiempo de request.
+
+## 14. Type-check con Tipos de Rutas Frescos
+**Decisión:** `pnpm type-check` ejecuta `next typegen` (que regenera `.next/types`) y `tsconfig.json` excluye `.next/dev`.
+**Justificación:** `.next/dev/types` solo lo actualiza `next dev`. Si se mueve o elimina una página con el servidor detenido, esos tipos quedan apuntando a archivos inexistentes y el type-check falla sin un error real en el código. Excluirlos evita tener que borrar `.next` en cada commit.

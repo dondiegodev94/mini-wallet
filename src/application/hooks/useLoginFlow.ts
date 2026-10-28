@@ -57,7 +57,10 @@ export function useLoginFlow() {
     });
 
     if (result.ok) {
-      setState((previous) => ({ ...previous, status: "success" }));
+      // Resetear al estado limpio ANTES de navegar: el Router Cache de Next.js guarda el estado del
+      // componente al momento de la navegación. Si guardamos INITIAL_STATE, lo restaura limpio.
+      inFlight.current = false;
+      setState(INITIAL_STATE);
       router.replace(HOME_ROUTE);
       return;
     }
@@ -78,7 +81,7 @@ export function useLoginFlow() {
     status: state.status,
     fieldError: state.fieldError,
     formError: state.formError,
-    isSubmitting: state.status === "submitting" || state.status === "success",
+    isSubmitting: state.status === "submitting",
     setIdentifier,
     submit,
   };

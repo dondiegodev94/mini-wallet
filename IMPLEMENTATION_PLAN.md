@@ -124,7 +124,7 @@ Features: `AUTH` (login y sesión), `HOME` (dashboard), `CT` (contactos), `TX` (
   * Actualizar `AGENTS.md` para permitir los tipos `fix` y `refactor` (necesarios a partir de las features).
 * **Nota:** los archivos no versionados en `src/domain/` (`models/types.ts`, `specs/contact.schema.ts`) no se commitean aquí; se reubican en la feature que los necesita (PR 3–6).
 
-### PR 3: Feature — Autenticación (Login) y Protección de Rutas · [`SPEC-AUTH`](docs/specs/SPEC-AUTH.md) 🚧 En revisión
+### PR 3: Feature — Autenticación (Login) y Protección de Rutas · [`SPEC-AUTH`](docs/specs/SPEC-AUTH.md) ✅ Completado
 * **Objetivo:** flujo de entrada a la aplicación con sesión mockeada y rutas privadas.
 * **Spec (reglas derivadas):** identificador obligatorio; válido si es email o teléfono de 10 dígitos; normalización (trim, minúsculas en email, sin espacios ni prefijo `+52` en teléfono); error simulado determinista (`error@miniwallet.dev`); sesión firmada de 30 minutos; páginas privadas por defecto; `/login` con sesión activa redirige a `/`.
 * **Entregables:**
@@ -136,16 +136,17 @@ Features: `AUTH` (login y sesión), `HOME` (dashboard), `CT` (contactos), `TX` (
   * UI: componentes DS `Button`, `Input`, `TextField`, `Alert` y `Card` (CVA); `AuthLayout` y `LoginForm`; contenedor `LoginScreen`.
   * Tests: 84 unitarios (esquema, sesión, servicio, Route Handler, proxy, cliente HTTP, hook y componentes) y 14 E2E (escritorio y móvil). E2E integrados al CI.
 
-### PR 4: Feature — Dashboard (Home) · `SPEC-HOME`
+### PR 4: Feature — Dashboard (Home) · [`SPEC-HOME`](docs/specs/SPEC-HOME.md) 🚧 En revisión
 * **Objetivo:** visualizar el estado de cuenta con manejo asíncrono y responsivo.
-* **Spec (reglas derivadas a documentar):** montos en unidades menores (centavos, enteros) para evitar errores de punto flotante; formato de moneda con `Intl.NumberFormat`; orden de movimientos (más recientes primero) y límite de recientes; distinción entre cargo y abono; cómo forzar los estados vacío y error en pruebas.
+* **Spec (reglas derivadas):** montos en centavos enteros; formato MXN `es-MX`; signo y texto accesible según cargo/abono; orden del más reciente al más antiguo y límite de 10; fechas en `America/Mexico_City`; resumen solo del usuario de la sesión; escenario `WALLET_UNAVAILABLE`; sin "Nueva transacción" ante error; cierre de sesión.
 * **Entregables:**
-  * Dominio: `Money` (centavos) + `formatMoney`; modelo `Movement` (dirección, monto, contraparte, fecha, estado).
-  * Servicio: repositorio en memoria con usuarios semilla (uno con movimientos y otro sin ellos) y servicio `getWalletSummary(userId)`.
-  * API: `GET /api/wallet` (usuario, saldo y movimientos recientes) para refrescos desde el cliente.
-  * Renderizado: la página es un Server Component que invoca el servicio directamente (sin hacer fetch a su propia API) dentro de `<Suspense>`; `loading.tsx` con Skeleton y `error.tsx` con reintento. Con `cacheComponents` habilitado, la lectura de `cookies()` queda dentro del límite de Suspense.
-  * UI: `Card`, `Skeleton`, `EmptyState`, `ErrorState`, `BalanceCard`, `MovementList` y CTA "Nueva transacción" → `/transfer`.
-  * Tests: formateo y orden de movimientos, componentes de lista y estados; E2E del Home con datos, vacío y error.
+  * Dominio: modelos `Movement` y `WalletSummary`; regla `selectRecentMovements`; contrato `walletSummarySchema`.
+  * Servidor: sesión actual (`getCurrentSession` con `connection()`), escenarios `x-mock-scenario`, repositorio de cuentas semilla (Ana con 12 movimientos, Luis sin movimientos) y servicio `getWalletSummary`.
+  * API: `GET /api/wallet` (`401` sin sesión, `503` con el escenario simulado), listo para el flujo de transferencia.
+  * Renderizado: route group `(private)` con layout común (encabezado + "Cerrar sesión") y `error.tsx` con `retry()`; Home en *Partial Prerender* con `<Suspense>` y `WalletSkeleton`; el Server Component invoca el servicio directamente.
+  * Aplicación: hook `useLogout`.
+  * UI: `Skeleton`, `EmptyState`, `ErrorState`, `ButtonLink` y variantes `secondary`/`ghost` de `Button`; `BalanceCard`, `MovementList`, `WalletDashboard`, `WalletSkeleton`, `AppShell` y `LogoutControl`; formateadores de moneda y fecha.
+  * Tests: 136 unitarios en total y 28 E2E (escritorio y móvil) con datos, vacío, carga, error con recuperación, CTA, cierre de sesión y ausencia de scroll horizontal.
 
 ### PR 5: Feature — Nueva Transacción y Contactos · `SPEC-TX` + `SPEC-CT`
 * **Objetivo:** capturar monto y destinatario y mostrar el resumen antes de confirmar.

@@ -52,8 +52,9 @@ describe("useLoginFlow", () => {
       LOGIN_ENDPOINT,
       expect.objectContaining({ method: "POST", body: { identifier: "ana@miniwallet.dev" } }),
     );
-    expect(result.current.status).toBe("success");
-    expect(result.current.isSubmitting).toBe(true);
+    expect(result.current.status).toBe("idle");
+    expect(result.current.identifier).toBe("");
+    expect(result.current.isSubmitting).toBe(false);
     expect(replace).toHaveBeenCalledWith(HOME_ROUTE);
   });
 
