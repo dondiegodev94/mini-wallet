@@ -1,26 +1,17 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
+@layer base {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    /* Variables inyectadas para nuestro Design System */
+    --background: #F3F4F6; /* Un gris muy claro para fondo de apps financieras */
+    --foreground: #111827;
+    --radius: 0.5rem;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
-}
+/* 
+  PROHIBIDO ESCRIBIR CLASES AQUÍ.
+  Cualquier estilo de componente debe ir en su respectivo Component.module.css
+*/
