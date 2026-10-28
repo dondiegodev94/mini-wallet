@@ -169,7 +169,7 @@ Features: `AUTH` (login y sesión), `HOME` (dashboard), `CT` (contactos), `TX` (
   * UI: `MaskedField`, `SegmentedControl` y `SelectField` en el Design System; `ContactList`, `NewContactForm`, `RecipientSection`, `TransferForm`, `TransferSummary` y `TransferSkeleton`.
   * Tests: reglas, store, hooks y formularios; E2E de formato y cursor, máscaras, alta y duplicado de contacto, bloqueo por cada regla, edición, recarga, cancelación, aislamiento entre usuarios y cierre de sesión con borrador.
 
-### PR 6: Feature — Confirmación, Motor de Caos y Comprobante · [`SPEC-CONF`](docs/specs/SPEC-CONF.md) 🚧 En revisión
+### PR 6: Feature — Confirmación, Motor de Caos y Comprobante · [`SPEC-CONF`](docs/specs/SPEC-CONF.md) ✅ Completado
 * **Objetivo:** el núcleo técnico de la PoC: procesar la transferencia simulando al azar los 5 escenarios, reaccionar correctamente a cada uno y probar el recorrido completo de la wallet.
 * **Spec (reglas derivadas):**
   * El servidor revalida sesión, `Idempotency-Key`, esquema, destinatario propio y saldo real antes de cualquier efecto; verificación de saldo, cargo y movimiento en un bloque atómico.
@@ -190,10 +190,11 @@ Features: `AUTH` (login y sesión), `HOME` (dashboard), `CT` (contactos), `TX` (
 * **Objetivo:** medir la calidad de las pruebas por encima de la cobertura. Los recorridos de inicio a fin y la resiliencia (red, timeout y reintentos) se entregaron con el PR 6, porque con él la wallet quedó completa.
 * **Entregables:** instalar Stryker y publicar el umbral de mutación sobre `src/domain` y `src/application/hooks`.
 
-### PR 8: Cierre Documental y Evolución
+### PR 8: Cierre Documental y Evolución 🚧 En revisión
 * **Objetivo:** consolidar la documentación de la PoC para su operación y evolución.
 * **Entregables:**
-  * `README.md`: instrucciones para levantar el proyecto, scripts, librerías usadas y limitaciones conocidas.
-  * `DECISIONS.md`: justificación de la estructura, separación UI / lógica de negocio, renderizado por página (SSR/CSR), elección de estado, **edge cases considerados** (consolidados desde las specs) y **qué se haría diferente con más tiempo**.
+  * `README.md`: instrucciones para levantar el proyecto, variables de entorno, scripts, cómo correr las pruebas, arquitectura en breve, librerías usadas y limitaciones conocidas.
+  * `README.md` · **Design System:** tokens semánticos, cómo fluye un token hasta un componente, reglas que lo protegen, cómo cambiar paleta, tamaños y fuente, temas (modo oscuro o varias marcas), cómo acoplar otro Design System (tokens, componentes o motor de estilos) y cómo agregar un componente.
+  * `DECISIONS.md`: renderizado por página actualizado (SSR/CSR/PPR), **edge cases considerados** (§25, consolidados desde las specs) y **qué se haría diferente con más tiempo** (§26).
   * `AI_USAGE.md`: herramientas usadas (Gemini, Claude Code) y en qué partes; qué se aceptó, corrigió o rechazó; qué decisiones fueron propias.
-  * Roadmap futuro: observabilidad (Datadog, Mixpanel), Core Web Vitals y calidad/seguridad (SonarCloud, Snyk).
+  * Roadmap futuro en el `README.md`: mutation testing, observabilidad (Datadog, Mixpanel), Core Web Vitals, calidad y seguridad (SonarCloud, Snyk), infraestructura y producto.
