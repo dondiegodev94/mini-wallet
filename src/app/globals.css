@@ -1,17 +1,29 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss" source(none);
 
-@layer base {
-  :root {
-    /* Variables inyectadas para nuestro Design System */
-    --background: #F3F4F6; /* Un gris muy claro para fondo de apps financieras */
-    --foreground: #111827;
-    --radius: 0.5rem;
-  }
+/* Tailwind solo escanea las capas de presentación */
+@source "../app";
+@source "../ui";
+
+/* Design Tokens: fuente única de verdad del Design System */
+@theme {
+  --color-background: #f3f4f6;
+  --color-foreground: #111827;
+
+  --color-primary: #00e096;
+  --color-primary-foreground: #111827;
+
+  --color-destructive: #ef4444;
+  --color-destructive-foreground: #fafafa;
+
+  --color-muted: #f3f4f6;
+  --color-muted-foreground: #6b7280;
+
+  --radius-lg: 0.5rem;
+  --radius-md: calc(0.5rem - 2px);
+  --radius-sm: calc(0.5rem - 4px);
 }
 
-/* 
+/*
   PROHIBIDO ESCRIBIR CLASES AQUÍ.
-  Cualquier estilo de componente debe ir en su respectivo Component.module.css
+  Los estilos de componentes viven en src/ui/components mediante variantes CVA.
 */
