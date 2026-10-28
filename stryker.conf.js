@@ -8,8 +8,9 @@ module.exports = {
   testRunner: "jest",
   coverageAnalysis: "perTest",
   mutate: [
-    "src/domain/specs/**/*.ts",
-    "src/application/hooks/**/*.ts"
+    "src/domain/**/*.ts",
+    "src/application/hooks/**/*.ts",
+    "!src/**/*.test.ts"
   ],
   jest: {
     projectType: 'custom',
