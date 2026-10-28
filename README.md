@@ -54,12 +54,19 @@ El proyecto prioriza el pragmatismo y el rendimiento, seleccionando herramientas
 
 El login no usa contraseña: basta con el teléfono o el email (se aceptan espacios, guiones y el prefijo `+52` en el teléfono).
 
-| Usuario | Email | Teléfono |
-|---------|-------|----------|
-| Ana García | `ana@miniwallet.dev` | `5512345678` |
-| Luis Pérez | `luis@miniwallet.dev` | `5587654321` |
+| Usuario | Email | Teléfono | Home |
+|---------|-------|----------|------|
+| Ana García | `ana@miniwallet.dev` | `5512345678` | Saldo de $12,450.75 y 12 movimientos (se muestran los 10 más recientes) |
+| Luis Pérez | `luis@miniwallet.dev` | `5587654321` | Saldo de $3,000.00 sin movimientos (estado vacío) |
 
-Con `ENABLE_TEST_SCENARIOS=true`, el email `error@miniwallet.dev` simula un servicio no disponible para mostrar el estado de error.
+### Escenarios de error simulados
+
+Disponibles solo con `ENABLE_TEST_SCENARIOS=true`:
+
+| Escenario | Cómo activarlo |
+|-----------|----------------|
+| Login con servicio no disponible | Iniciar sesión con `error@miniwallet.dev` |
+| Home sin servicio de saldo | Enviar el header `x-mock-scenario: WALLET_UNAVAILABLE` (por ejemplo, con una extensión del navegador para modificar headers) |
 
 ## 📜 Scripts Disponibles
 
@@ -81,6 +88,8 @@ Para mantener el enfoque en la arquitectura del frontend dentro del alcance de l
 2. **Aleatoriedad determinista (testing):** la pantalla de confirmación genera 5 escenarios aleatorios. Para probar el sistema sin inestabilidad (*flakiness*), los tests envían el header `x-mock-scenario`, que solo se respeta si `ENABLE_TEST_SCENARIOS=true`.
 3. **Autenticación mockeada:** no hay contraseña ni factor de autenticación real; solo validación de formato y una sesión de 30 minutos en una cookie firmada (HMAC) que sobrevive a reinicios del servidor.
 4. **Sin regreso a la ruta solicitada:** tras el login siempre se navega al Home, aunque el usuario hubiera intentado abrir otra página privada.
+5. **Historial acotado:** el Home muestra solo los 10 movimientos más recientes; no hay paginación ni detalle de movimiento.
+6. **Moneda y zona horaria fijas:** los montos se muestran en MXN (`es-MX`) y las fechas en `America/Mexico_City`.
 
 ## 📚 Documentación Adjunta
 
