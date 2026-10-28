@@ -3,6 +3,7 @@ import { z } from "zod";
 export const API_ERROR_CODES = [
   "VALIDATION_ERROR",
   "INVALID_CREDENTIALS",
+  "UNAUTHORIZED",
   "SERVICE_UNAVAILABLE",
   "INTERNAL_ERROR",
 ] as const;
