@@ -148,7 +148,7 @@ Esta spec no agrega endpoints:
 | Error | "No pudimos cargar tu información" + "Reintentar"; sin formulario | `x-mock-scenario: WALLET_UNAVAILABLE` |
 | Sin contactos | Lista vacía con el alta de contacto visible ([`SPEC-CT`](SPEC-CT.md)) | `luis@miniwallet.dev` |
 | Error de validación | Mensaje bajo el campo, `aria-invalid`, foco al primer campo inválido | Continuar con monto vacío o sin destinatario |
-| Resumen | Datos del borrador + "Editar" y "Cancelar"; "Confirmar transferencia" se agrega con [`SPEC-CONF`](SPEC-CONF.md) | Borrador válido |
+| Resumen | Datos del borrador + "Confirmar transferencia" ([`SPEC-CONF`](SPEC-CONF.md)), "Editar" y "Cancelar" | Borrador válido |
 
 ## 7. Edge cases
 - `0.29`, `0.07`, `1.10` y `9,999,999.99`: conversión exacta a centavos (R03).
