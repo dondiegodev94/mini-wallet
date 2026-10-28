@@ -28,13 +28,19 @@ El proyecto prioriza el pragmatismo y el rendimiento, seleccionando herramientas
    ```bash
    cd mini-wallet
     ```
+    
+2. Configurar Variables de Entorno:
+   Crea tu archivo local a partir del ejemplo:
+   ```bash
+   cp .env.example .env.local
+   ```
 
-2. Instalar dependencias:
+3. Instalar dependencias:
    ```bash
    pnpm install
    ```
    
-3. Levantar el servidor de desarrollo:
+4. Levantar el servidor de desarrollo:
    ```bash
    pnpm dev
    ```
