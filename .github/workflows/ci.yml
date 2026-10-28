@@ -1,0 +1,42 @@
+name: CI Pipeline
+
+on:
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  quality-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Necesario para revisar el historial de commits
+      
+      - name: Importar clave pública GPG
+        run: echo "${{ secrets.GPG_PUBLIC_KEY }}" | gpg --import
+
+      - name: Verificar firmas GPG en los commits
+        run: |
+          # Revisa todos los commits en el PR actual para verificar que tengan firma válida
+          for commit in $(git rev-list ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}); do
+            if ! git verify-commit $commit > /dev/null 2>&1; then
+              echo "❌ Error: El commit $commit no está firmado con GPG."
+              exit 1
+            fi
+          done
+          echo "✅ Todos los commits están firmados correctamente."
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          
+      - name: Instalar dependencias
+        run: npm install -g pnpm && pnpm install
+        
+      - name: Validar TypeScript
+        run: pnpm type-check
+        
+      - name: Ejecutar Pruebas Unitarias
+        run: pnpm test
