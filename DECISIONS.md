@@ -11,7 +11,7 @@ Este documento registra los trade-offs y decisiones técnicas tomadas para cumpl
 
 ## 2. Gestión del Estado: Zustand
 **Decisión:** Elegido sobre Context API o Redux.
-**Justificación:** Zustand evita re-renders innecesarios mediante suscripciones atómicas y permite desacoplar la lógica de estado en *Custom Hooks* (ej. `useTransferFlow`) fuera del árbol de React, cumpliendo con los principios SOLID y manteniendo los componentes de UI limpios.
+**Justificación:** Zustand evita re-renders innecesarios mediante suscripciones atómicas y permite desacoplar la lógica de estado en *Custom Hooks* y stores (ej. `useTransferStore` con el borrador y el envío en curso) fuera del árbol de React, cumpliendo con los principios SOLID y manteniendo los componentes de UI limpios.
 
 ## 3. Servicios: API Routes como BFF (Backend-For-Frontend)
 **Decisión:** Simular el backend mediante Route Handlers (`app/api/`).
@@ -49,7 +49,8 @@ La estructura del proyecto sigue una arquitectura basada en capas funcionales. E
 ┃ ┃ ┃ ┣ 📂 auth/route.ts            # Login / logout y cookie de sesión mockeada
 ┃ ┃ ┃ ┣ 📂 wallet/route.ts          # Saldo y movimientos recientes
 ┃ ┃ ┃ ┣ 📂 contacts/route.ts        # Listado y alta de contactos
-┃ ┃ ┃ ┗ 📂 transactions/route.ts    # Motor de caos (Éxito, Red, Fondos, Timeout, Genérico)
+┃ ┃ ┃ ┣ 📂 transactions/route.ts    # Confirmación con Idempotency-Key y motor de caos (Éxito, Red, Fondos, Timeout, Genérico)
+┃ ┃ ┃ ┗ 📂 test/accounts/route.ts   # Cuentas aisladas para E2E (solo con ENABLE_TEST_SCENARIOS)
 ┃ ┃ ┣ 📂 login
 ┃ ┃ ┃ ┣ 📜 page.tsx                 # Shell estático (Server Component)
 ┃ ┃ ┃ ┗ 📂 _components              # Contenedores cliente: conectan hooks con componentes tontos
@@ -63,13 +64,13 @@ La estructura del proyecto sigue una arquitectura basada en capas funcionales. E
 ┃ ┃ ┃   ┣ 📜 page.tsx               # Monto + destinatario + concepto (Partial Prerender; saldo y contactos en servidor)
 ┃ ┃ ┃   ┣ 📂 _components            # TransferSetup (Server Component), TransferScreen (cliente)
 ┃ ┃ ┃   ┣ 📂 review/page.tsx        # Resumen desde el store; sin borrador redirige a /transfer
-┃ ┃ ┃   ┗ 📂 status/page.tsx        # Renderizado condicional de comprobante o errores
+┃ ┃ ┃   ┗ 📂 status/page.tsx        # Procesando, comprobante o error; reemplaza al resumen en el historial
 ┃ ┃ ┣ 📜 globals.css                # Design Tokens (@theme de Tailwind v4)
 ┃ ┃ ┗ 📜 layout.tsx                 # Layout global
 ┃ ┣ 📜 proxy.ts                     # Páginas privadas por defecto; verifica la cookie firmada (antes "middleware")
 ┃ ┣ 📂 domain                       # Capa 1: Reglas de Negocio (cero dependencias de React/Next)
 ┃ ┃ ┣ 📂 contracts                  # Contratos de la API validados con Zod (errores, respuestas)
-┃ ┃ ┣ 📂 models                     # Tipos estables (User, Session, Movement, Contact…)
+┃ ┃ ┣ 📂 models                     # Tipos estables (User, Session, Movement, Contact, Transaction…)
 ┃ ┃ ┣ 📂 schemas                    # Esquemas Zod compartidos por UI y API (login, contacto)
 ┃ ┃ ┗ 📂 rules                      # Reglas puras (monto, transferencia, cuentas, moneda, movimientos)
 ┃ ┣ 📂 server                       # Solo servidor (`server-only`): nunca se empaqueta en el cliente
@@ -77,14 +78,17 @@ La estructura del proyecto sigue una arquitectura basada en capas funcionales. E
 ┃ ┃ ┣ 📂 config                     # Variables de entorno validadas con Zod
 ┃ ┃ ┣ 📂 http                       # Respuestas de error homogéneas para los Route Handlers
 ┃ ┃ ┣ 📂 mock                       # Latencia y escenarios simulados (x-mock-scenario)
-┃ ┃ ┣ 📂 users                      # Repositorio de usuarios semilla
+┃ ┃ ┣ 📂 users                      # Usuarios semilla y cuentas de prueba (globalThis)
 ┃ ┃ ┣ 📂 contacts                   # Contactos por usuario en memoria (globalThis) y servicio
-┃ ┃ ┗ 📂 wallet                     # Repositorio de cuentas y servicio de resumen
+┃ ┃ ┣ 📂 transactions               # Motor de caos, almacén de idempotencia y servicio de transferencia
+┃ ┃ ┣ 📂 testing                    # Alta de cuentas aisladas para las E2E
+┃ ┃ ┗ 📂 wallet                     # Saldo y movimientos en memoria (globalThis) y servicio de resumen
 ┃ ┣ 📂 application                  # Capa 2: Casos de Uso y Estado (Zustand + Custom Hooks)
-┃ ┃ ┣ 📂 http                       # Cliente HTTP con timeout y validación de contratos
+┃ ┃ ┣ 📂 http                       # Cliente HTTP con timeout y validación de contratos; envío de la transferencia
 ┃ ┃ ┣ 📂 navigation                 # Navegación completa (cierre de sesión)
-┃ ┃ ┣ 📂 hooks                      # "Smart" Hooks (useLoginFlow, useTransferForm, useCreateContact…) - Zero UI
-┃ ┃ ┗ 📂 store                      # Tiendas Zustand (useTransferStore: borrador + Idempotency-Key)
+┃ ┃ ┣ 📂 hooks                      # "Smart" Hooks (useLoginFlow, useTransferForm, useTransferStatus…) - Zero UI
+┃ ┃ ┣ 📂 store                      # Tiendas Zustand (useTransferStore: borrador, Idempotency-Key y envío en curso)
+┃ ┃ ┗ 📂 transfer                   # submitTransfer: el envío vive fuera de React y sobrevive a la navegación
 ┃ ┗ 📂 ui                           # Capa 3: Design System y Componentes (Token-Driven)
 ┃   ┣ 📂 components                 # "Dumb" Components genéricos (Button, MaskedField, SelectField…) con CVA
 ┃   ┣ 📂 features                   # Ensamblajes UI por feature (auth, home, layout, transfer)
@@ -107,7 +111,7 @@ La estructura del proyecto sigue una arquitectura basada en capas funcionales. E
 ### Justificación de la Estructura
 
 *   **Aislamiento del Dominio (`src/domain/`)**: Toda la validación requerida por el negocio (monto mínimo, saldo suficiente y destinatario obligatorio) reside como esquemas abstractos (`Zod`) en la capa de dominio. Esto permite que tanto el frontend (`src/application/hooks`) como el backend simulado (`app/api/`) consuman **exactamente la misma fuente de verdad**, garantizando consistencia y evitando duplicación de código.
-*   **Hooks Inteligentes, Componentes Tontos (`src/application/` vs `src/ui/`)**: La carpeta `ui/` tiene prohibido importar de `api/`, de `application/` o ejecutar lógica de validación. La unión entre ambos ocurre en contenedores cliente dentro de `_components` de cada ruta (ej. `LoginScreen` invoca `useLoginFlow` y pasa props a `LoginForm`). La pantalla de confirmación, que debe reaccionar a 5 escenarios distintos, simplemente renderiza propiedades (props). Es el hook `useTransferFlow` (`application/`) quien orquesta la llamada asíncrona, intercepta los errores y alimenta la UI.
+*   **Hooks Inteligentes, Componentes Tontos (`src/application/` vs `src/ui/`)**: La carpeta `ui/` tiene prohibido importar de `api/`, de `application/` o ejecutar lógica de validación. La unión entre ambos ocurre en contenedores cliente dentro de `_components` de cada ruta (ej. `LoginScreen` invoca `useLoginFlow` y pasa props a `LoginForm`). La pantalla de estado, que debe reaccionar a 5 escenarios distintos, simplemente renderiza propiedades (props). La capa de aplicación (`submitTransfer`, `sendTransfer` y `useTransferStatus`) orquesta la llamada asíncrona, traduce cada respuesta a un resultado y alimenta la UI.
 *   **Design System Aislado (`src/ui/components` y `@theme` en `globals.css`)**: Al centralizar los estilos en Tailwind pero limitando su uso a componentes base envueltos con CVA (`class-variance-authority`), garantizamos un renderizado predecible. Si cambian los lineamientos de diseño, solo se modifica la configuración de Tailwind o los archivos base en `ui/components/`, mitigando drásticamente el riesgo de inyectar bugs lógicos por un cambio estético y manteniendo las vistas de la aplicación completamente limpias.
 
 ## 7. Estrategia de Calidad y Seguridad en Commits (Iniciativa Propia)
@@ -154,7 +158,7 @@ La estructura del proyecto sigue una arquitectura basada en capas funcionales. E
 **Justificación:** Un estilo "caja registradora" (`1` → `$0.01`) confunde en escritorio. Descartar un cambio completo evita que pegar `1.234,56` se convierta en silencio en `$1.23`. El componente `MaskedField` del Design System recibe `sanitize` y `format`; el cursor se reubica contando los caracteres significativos que quedan a su derecha, así no salta cuando el formato agrega separadores, y borrar un separador elimina el dígito contiguo.
 
 ## 17. Idempotency-Key Ligada a la Intención de Transferencia
-**Decisión:** Al pasar al resumen, el store genera una clave UUID v4 (`crypto.randomUUID()`). La clave se conserva mientras el monto, el destinatario y el concepto no cambien, se regenera si alguno cambia y se descarta al cancelar, al terminar y al cerrar sesión. `POST /api/transactions` (PR 6) la exige en el header `Idempotency-Key` ([`SPEC-CONF`](docs/specs/SPEC-CONF.md)).
+**Decisión:** Al pasar al resumen, el store genera una clave UUID v4 (`crypto.randomUUID()`). La clave se conserva mientras el monto, el destinatario y el concepto no cambien, se regenera si alguno cambia y se descarta al cancelar, al terminar y al cerrar sesión. `POST /api/transactions` la exige en el header `Idempotency-Key` ([`SPEC-CONF`](docs/specs/SPEC-CONF.md)).
 **Justificación:** Tras un timeout, el cliente no sabe si el cargo se aplicó. Reintentar con la misma clave permite que el servidor devuelva el resultado original sin cobrar dos veces. Si la clave se generara en cada envío, el reintento duplicaría la transferencia. Si se conservara tras editar el monto, el servidor rechazaría la solicitud por clave reutilizada con otro contenido.
 
 ## 18. Cierre de Sesión con Navegación Completa
@@ -162,5 +166,25 @@ La estructura del proyecto sigue una arquitectura basada en capas funcionales. E
 **Justificación:** Con `cacheComponents`, Next.js 16 conserva el estado de React de las rutas visitadas. Con una navegación interna, el siguiente usuario de la misma pestaña podría ver estado del anterior: el borrador del store, un contacto recién creado o lo capturado en un formulario. Recargar el documento descarta todo el estado del cliente de una sola vez, en lugar de depender de limpiar cada estado por separado.
 
 ## 19. Estado del Servidor Simulado en `globalThis`
-**Decisión:** El repositorio de contactos guarda su estado en `globalThis`.
-**Justificación:** Las API Routes y los Server Components pueden cargarse como módulos separados, y el recargado en caliente reevalúa los módulos. Un `Map` a nivel de módulo podría duplicarse o reiniciarse, y entonces un contacto creado desde el API no aparecería en `/transfer`. `globalThis` da una única fuente en memoria por proceso, que es lo que simula la base de datos de la PoC.
+**Decisión:** Los repositorios de contactos, cuentas (saldo y movimientos), usuarios y el almacén de idempotencia guardan su estado en `globalThis`.
+**Justificación:** Las API Routes y los Server Components pueden cargarse como módulos separados, y el recargado en caliente reevalúa los módulos. Un `Map` a nivel de módulo podría duplicarse o reiniciarse, y entonces un contacto creado desde el API no aparecería en `/transfer`, o un cargo hecho en `POST /api/transactions` no se vería en el Home. `globalThis` da una única fuente en memoria por proceso, que es lo que simula la base de datos de la PoC.
+
+## 20. Motor de Caos Después de la Validación y Timeout que Sí Cobra
+**Decisión:** `POST /api/transactions` valida sesión, clave, esquema, destinatario y saldo real **antes** de consultar el motor de caos, que elige al azar con pesos definidos en una constante (`SUCCESS 60` y 10 por cada fallo). El escenario `TIMEOUT` aplica el cargo, registra el resultado y solo después retrasa la respuesta más allá del límite del cliente.
+**Justificación:** Si el azar corriera primero, una solicitud inválida podría "tener éxito" y las pruebas de validación serían inestables. Un timeout que no cobrara no tendría nada que demostrar: el caso real y peligroso es el de un cargo aplicado cuya respuesta se pierde. Así, la pantalla de timeout dice la verdad ("aún no sabemos si se completó") y el reintento con la misma clave devuelve el comprobante original sin cobrar dos veces.
+
+## 21. Idempotencia en el Servidor: Huella, *Single-Flight* y Solo Éxitos
+**Decisión:** La clave tiene alcance por usuario y se guarda con la huella del cuerpo (`contactId`, `amountCents`, `concept`). Una repetición devuelve el mismo `201` con `Idempotent-Replayed: true`; la misma clave con otro contenido responde `422`. Mientras una solicitud está en curso, otra con la misma clave espera su resultado (la entrada "en curso" se registra antes del primer `await`). Solo se almacena el éxito, 24 horas.
+**Justificación:** La huella evita que una clave reutilizada por error cobre otra cantidad. El *single-flight* cubre el doble envío que llega al servidor al mismo tiempo, donde una simple búsqueda previa no basta. Los fallos no tienen efectos, así que almacenarlos impediría que un reintento legítimo tras un error de red llegue a procesarse.
+
+## 22. Confirmación Fuera de React y sin Regreso al Resumen
+**Decisión:** Al confirmar, el store descarta el borrador y marca el envío como "procesando" en una sola actualización; `submitTransfer` (fuera de React) hace la llamada y guarda el resultado; la navegación a `/transfer/status` usa `replace`. El resumen solo redirige a `/transfer` cuando no hay ningún envío, y un resultado que llega de un envío que ya no está en curso se ignora.
+**Justificación:** Como el resumen se consume al primer clic, un segundo clic no tiene qué enviar y "Atrás" lleva a un formulario vacío en lugar de a "Confirmar": una transferencia nueva recorre el flujo completo. Ejecutar el envío fuera de un componente garantiza que termine aunque la ruta cambie a mitad de la solicitud. La regla "solo sin envío" corrige una carrera detectada en E2E: cuando la conexión se cortaba al instante, el resultado llegaba antes de terminar la navegación y el resumen desviaba al usuario a `/transfer`.
+
+## 23. Tiempo Límite de la Transferencia Configurable
+**Decisión:** La confirmación usa su propio límite, `NEXT_PUBLIC_TRANSFER_TIMEOUT_MS` (15 s por defecto), separado del límite general de 4 s. El servidor calcula el retraso del escenario `TIMEOUT` a partir del mismo valor (+5 s).
+**Justificación:** Un pago tarda legítimamente más que una consulta, y 15 s permiten ver la pantalla de espera en la demo. Con una sola variable, cambiar el tiempo no puede dejar al servidor respondiendo antes que el cliente aborte. Al ser `NEXT_PUBLIC_*`, Next.js lo incrusta en el bundle: las E2E levantan el servidor con 3 s y el CI construye con el mismo valor.
+
+## 24. Cuentas Aisladas para las Pruebas E2E
+**Decisión:** Con `ENABLE_TEST_SCENARIOS=true`, `POST /api/test/accounts` crea un usuario nuevo a partir de los datos semilla de Ana o Luis (saldo, movimientos y contactos). Sin la variable, la ruta responde `404`.
+**Justificación:** Las E2E corren en paralelo en escritorio y móvil sobre el mismo servidor; si todas transfirieran desde Ana, el saldo esperado dependería del orden de ejecución. Una cuenta por prueba permite afirmar saldos exactos y no altera los datos de la demo. Clonar desde la semilla, no desde el estado actual, evita heredar cambios hechos durante la demo.

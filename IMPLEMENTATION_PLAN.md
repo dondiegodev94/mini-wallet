@@ -86,9 +86,12 @@ Features: `AUTH` (login y sesión), `HOME` (dashboard), `CT` (contactos), `TX` (
 | Transferencia sin duplicados (`Idempotency-Key`) | `SPEC-TX-R13` · `SPEC-CONF-R03..R08` | PR 5 (clave del borrador) + PR 6 (API) |
 | Confirmación aleatoria: éxito, error de red, fondos insuficientes, timeout, error desconocido | `SPEC-CONF` | PR 6 |
 | Comprobante / pantalla de éxito | `SPEC-CONF` | PR 6 |
+| Saldo descontado y movimiento nuevo en el Home | `SPEC-CONF-R12` · `SPEC-CONF-R22` | PR 6 |
+| Sin regreso al resumen; "Volver al inicio" en cada resultado | `SPEC-CONF-R15..R18` | PR 6 |
+| Tiempo límite configurable (15 s por defecto) | `SPEC-CONF-R13` | PR 6 |
 | Servicios con API Routes y datos mockeados | todas | PR 3–6 |
 | Testing unitario de validaciones, hooks y componentes críticos | todas | PR 3–6 |
-| E2E (Playwright) | todas | PR 2 (infra), PR 3–6 (por feature), PR 7 (transversal) |
+| E2E (Playwright) | todas | PR 2 (infra), PR 3–6 (por feature), PR 6 (recorridos de inicio a fin) |
 | README, DECISIONS, AI_USAGE | — | continuo + PR 8 |
 
 ---
@@ -151,7 +154,7 @@ Features: `AUTH` (login y sesión), `HOME` (dashboard), `CT` (contactos), `TX` (
   * UI: `Skeleton`, `EmptyState`, `ErrorState`, `ButtonLink` y variantes `secondary`/`ghost` de `Button`; `BalanceCard`, `MovementList`, `WalletDashboard`, `WalletSkeleton`, `AppShell` y `LogoutControl`; formateadores de moneda y fecha.
   * Tests: 136 unitarios en total y 28 E2E (escritorio y móvil) con datos, vacío, carga, error con recuperación, CTA, cierre de sesión y ausencia de scroll horizontal.
 
-### PR 5: Feature — Nueva Transacción y Contactos · [`SPEC-TX`](docs/specs/SPEC-TX.md) + [`SPEC-CT`](docs/specs/SPEC-CT.md) 🚧 En revisión
+### PR 5: Feature — Nueva Transacción y Contactos · [`SPEC-TX`](docs/specs/SPEC-TX.md) + [`SPEC-CT`](docs/specs/SPEC-CT.md) ✅ Completado
 * **Objetivo:** capturar monto y destinatario y mostrar el resumen antes de confirmar.
 * **Spec (reglas derivadas):**
   * Monto mayor a cero y menor o igual al saldo (igual está permitido); destinatario obligatorio y propio del usuario; concepto opcional de hasta 40 caracteres.
@@ -166,27 +169,26 @@ Features: `AUTH` (login y sesión), `HOME` (dashboard), `CT` (contactos), `TX` (
   * UI: `MaskedField`, `SegmentedControl` y `SelectField` en el Design System; `ContactList`, `NewContactForm`, `RecipientSection`, `TransferForm`, `TransferSummary` y `TransferSkeleton`.
   * Tests: reglas, store, hooks y formularios; E2E de formato y cursor, máscaras, alta y duplicado de contacto, bloqueo por cada regla, edición, recarga, cancelación, aislamiento entre usuarios y cierre de sesión con borrador.
 
-### PR 6: Feature — Confirmación, Motor de Caos y Comprobante · [`SPEC-CONF`](docs/specs/SPEC-CONF.md) (spec redactada con el PR 5)
-* **Objetivo:** el núcleo técnico de la PoC: procesar la transferencia simulando los 5 escenarios y reaccionar correctamente a cada uno.
+### PR 6: Feature — Confirmación, Motor de Caos y Comprobante · [`SPEC-CONF`](docs/specs/SPEC-CONF.md) 🚧 En revisión
+* **Objetivo:** el núcleo técnico de la PoC: procesar la transferencia simulando al azar los 5 escenarios, reaccionar correctamente a cada uno y probar el recorrido completo de la wallet.
 * **Spec (reglas derivadas):**
-  * El servidor revalida sesión, `Idempotency-Key`, esquema, destinatario propio y saldo real, en ese orden y antes de cualquier efecto; verificación de saldo y cargo en un bloque atómico.
+  * El servidor revalida sesión, `Idempotency-Key`, esquema, destinatario propio y saldo real antes de cualquier efecto; verificación de saldo, cargo y movimiento en un bloque atómico.
   * Idempotencia por usuario y clave con huella del cuerpo: repetición → mismo `201` con `Idempotent-Replayed: true`; misma clave con otro contenido → `422`; solicitudes concurrentes con la misma clave → *single-flight*; solo se almacena el éxito (24 h en memoria).
-  * Mapeo de escenarios: `SUCCESS` → 201 + comprobante; `INSUFFICIENT_FUNDS` → 422 con mensaje descriptivo; `UNKNOWN_ERROR` → 500 con fallback genérico; `NETWORK_ERROR` → 503 simulado (el cliente también trata un fallo de `fetch` como error de red); `TIMEOUT` → el servidor **procesa con éxito** pero responde después de `NEXT_PUBLIC_TIMEOUT_MS`, el cliente aborta y el reintento con la misma clave recupera el comprobante sin cobrar dos veces.
-  * Solo un éxito descuenta saldo y registra el movimiento (el Home lo refleja).
-  * Doble envío bloqueado en tres capas: botón, `inFlight` e idempotencia en servidor.
+  * Motor de caos con pesos en una constante (`SUCCESS 60` y 10 para cada fallo): `SUCCESS` → `201` con el comprobante y el saldo resultante; `NETWORK_ERROR` → `503`; `INSUFFICIENT_FUNDS` → `422` (simula un cargo ajeno posterior a la consulta del saldo); `UNKNOWN_ERROR` → `500`; `TIMEOUT` → el servidor **procesa con éxito** y responde 5 s después del límite del cliente.
+  * Tiempo límite de la confirmación configurable con `NEXT_PUBLIC_TRANSFER_TIMEOUT_MS` (15 s por defecto), independiente del límite general de 4 s.
+  * Al confirmar, el borrador se descarta y `/transfer/status` sustituye al resumen en el historial: "Atrás" no vuelve a "Confirmar" y una transferencia nueva recorre el flujo completo. "Procesando" no tiene botones; todo resultado ofrece "Volver al inicio". Error de red y timeout ofrecen "Reintentar" con la misma clave.
+  * Solo un éxito descuenta saldo y registra el movimiento; al volver al inicio, el Home se consulta de nuevo.
 * **Entregables:**
-  * Dominio: `TransactionResult` como unión discriminada por `status`, de modo que el comprobante solo exista en `SUCCESS` y el error solo en los fallos.
-  * API: `POST /api/transactions` con Chaos Engine aleatorio (pesos configurables); el header `x-mock-scenario` fuerza un escenario solo si `ENABLE_TEST_SCENARIOS=true`.
-  * Aplicación: hook `useConfirmTransfer` (timeout, reintento con la misma `Idempotency-Key`, mapeo de errores).
-  * UI: `/transfer/status` con renderizado condicional: `Receipt` (comprobante), `ErrorState` con reintentar (red y timeout), error descriptivo con opción de editar el monto (fondos insuficientes) y fallback genérico.
-  * Tests: motor de caos con escenario forzado, idempotencia, hook (todos los escenarios) y `Receipt`; E2E de los 5 escenarios vía `x-mock-scenario`.
+  * Dominio: `Transaction` y `TransferOutcome` (unión discriminada: el comprobante solo existe en `SUCCESS`); contrato `transferRequestSchema` con los mismos mensajes que el formulario; códigos de error de idempotencia, destinatario y fondos.
+  * Servidor: `chaosEngine`, `idempotencyStore` y `transactionService` (*single-flight* y cargo atómico); saldo, movimientos y usuarios en `globalThis`.
+  * API: `POST /api/transactions`; `POST /api/test/accounts` (solo con `ENABLE_TEST_SCENARIOS`) para cuentas aisladas en las E2E.
+  * Aplicación: `sendTransfer` (mapeo de respuestas a resultados), `submitTransfer` (fuera de React, sobrevive a la navegación), envío en curso dentro de `useTransferStore`, hooks `useTransferReview` (confirmar) y `useTransferStatus` (reintentar y volver al inicio).
+  * UI: `/transfer/status` con `TransferProcessing`, `TransferReceipt` y `TransferFailure`; `SummaryRow` compartido con el resumen; foco en el título de cada resultado.
+  * Tests: 392 unitarios en total (motor de caos, idempotencia, concurrencia, validación en servidor, mapeo de resultados, store y hooks) y 102 E2E (escritorio y móvil): los cinco escenarios, reintento con la misma clave, repetición tras timeout, fondos insuficientes reales, doble clic, regreso con "Atrás", sesión expirada y seis recorridos de inicio a fin.
 
-### PR 7: Pruebas E2E Transversales y Resiliencia
-* **Objetivo:** validar el recorrido completo como un usuario real, por encima de los E2E de cada feature.
-* **Entregables:**
-  * *Happy path* completo: Login → Home → Nueva Transacción → Resumen → Comprobante → Home con saldo y movimiento actualizados.
-  * Resiliencia: interceptación de peticiones (`page.route`) y `x-mock-scenario` para validar la recuperación de la UI ante caídas de red, timeouts y reintentos.
-  * Opcional: instalar Stryker y publicar el umbral de mutación sobre `src/domain` y `src/application/hooks`.
+### PR 7: Mutation Testing (opcional)
+* **Objetivo:** medir la calidad de las pruebas por encima de la cobertura. Los recorridos de inicio a fin y la resiliencia (red, timeout y reintentos) se entregaron con el PR 6, porque con él la wallet quedó completa.
+* **Entregables:** instalar Stryker y publicar el umbral de mutación sobre `src/domain` y `src/application/hooks`.
 
 ### PR 8: Cierre Documental y Evolución
 * **Objetivo:** consolidar la documentación de la PoC para su operación y evolución.
