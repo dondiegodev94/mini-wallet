@@ -1,9 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-
-async function loginAs(page: Page, identifier: string) {
-  const response = await page.request.post("/api/auth", { data: { identifier } });
-  expect(response.ok()).toBe(true);
-}
+import { loginAs } from "./support/session";
 
 function movementsList(page: Page) {
   return page.getByRole("list", { name: "Movimientos recientes" });
