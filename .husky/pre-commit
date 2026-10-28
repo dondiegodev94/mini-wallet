@@ -1,2 +1,2 @@
-rm -rf .next && pnpm type-check
+pnpm type-check
 npx lint-staged

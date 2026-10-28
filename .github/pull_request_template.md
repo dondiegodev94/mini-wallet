@@ -14,7 +14,7 @@
 ## ⚖️ Checklist de Clean Code y SOLID
 - [ ] La UI y la lógica de negocio están estrictamente separadas.
 - [ ] Todo manejo de estado complejo reside en un Custom Hook (`use...`).
-- [ ] Las validaciones de negocio residen en `domain/specs` y no en la UI.
+- [ ] Las validaciones de negocio residen en `domain/schemas` y no en la UI.
 
 ## 🎨 Checklist de Rendimiento y Design System
 - [ ] **NO hay estilos inline** (`style={{...}}`).
