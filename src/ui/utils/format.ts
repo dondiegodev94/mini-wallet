@@ -4,8 +4,6 @@ const LOCALE = "es-MX";
 const CURRENCY = "MXN";
 const TIME_ZONE = "America/Mexico_City";
 
-const moneyFormatter = new Intl.NumberFormat(LOCALE, { style: "currency", currency: CURRENCY });
-
 const signedMoneyFormatter = new Intl.NumberFormat(LOCALE, {
   style: "currency",
   currency: CURRENCY,
@@ -21,10 +19,6 @@ const dateTimeFormatter = new Intl.DateTimeFormat(LOCALE, {
   minute: "2-digit",
   hour12: false,
 });
-
-export function formatMoney(cents: number): string {
-  return moneyFormatter.format(cents / 100);
-}
 
 export function formatMovementAmount(cents: number, type: MovementType): string {
   const sign = type === "DEBIT" ? -1 : 1;
