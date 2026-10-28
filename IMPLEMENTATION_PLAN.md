@@ -78,9 +78,12 @@ Features: `AUTH` (login y sesión), `HOME` (dashboard), `CT` (contactos), `TX` (
 | Ingresar monto | `SPEC-TX` | PR 5 |
 | Seleccionar contacto favorito o ingresar uno nuevo y guardarlo | `SPEC-CT` | PR 5 |
 | Mostrar resumen antes de confirmar | `SPEC-TX` | PR 5 |
-| Regla: monto mínimo (ni cero ni negativo) | `SPEC-TX-R01` | PR 5 (UI) + PR 6 (API) |
-| Regla: saldo suficiente | `SPEC-TX-R02` | PR 5 (UI) + PR 6 (API) |
-| Regla: destinatario obligatorio | `SPEC-TX-R03` | PR 5 (UI) + PR 6 (API) |
+| Regla: monto mínimo (ni cero ni negativo) | `SPEC-TX-R01` · `SPEC-CONF-R01` | PR 5 (dominio + UI) + PR 6 (API) |
+| Regla: saldo suficiente | `SPEC-TX-R02` · `SPEC-CONF-R01/R02` | PR 5 (dominio + UI) + PR 6 (API) |
+| Regla: destinatario obligatorio | `SPEC-TX-R08` · `SPEC-CONF-R01` | PR 5 (dominio + UI) + PR 6 (API) |
+| Captura del monto con formato de moneda | `SPEC-TX-R03..R07` | PR 5 |
+| Contactos por celular, tarjeta o CLABE con máscara y solo dígitos | `SPEC-CT-R02..R04` · `SPEC-CT-R11..R12` | PR 5 |
+| Transferencia sin duplicados (`Idempotency-Key`) | `SPEC-TX-R13` · `SPEC-CONF-R03..R08` | PR 5 (clave del borrador) + PR 6 (API) |
 | Confirmación aleatoria: éxito, error de red, fondos insuficientes, timeout, error desconocido | `SPEC-CONF` | PR 6 |
 | Comprobante / pantalla de éxito | `SPEC-CONF` | PR 6 |
 | Servicios con API Routes y datos mockeados | todas | PR 3–6 |
@@ -136,7 +139,7 @@ Features: `AUTH` (login y sesión), `HOME` (dashboard), `CT` (contactos), `TX` (
   * UI: componentes DS `Button`, `Input`, `TextField`, `Alert` y `Card` (CVA); `AuthLayout` y `LoginForm`; contenedor `LoginScreen`.
   * Tests: 84 unitarios (esquema, sesión, servicio, Route Handler, proxy, cliente HTTP, hook y componentes) y 14 E2E (escritorio y móvil). E2E integrados al CI.
 
-### PR 4: Feature — Dashboard (Home) · [`SPEC-HOME`](docs/specs/SPEC-HOME.md) 🚧 En revisión
+### PR 4: Feature — Dashboard (Home) · [`SPEC-HOME`](docs/specs/SPEC-HOME.md) ✅ Completado
 * **Objetivo:** visualizar el estado de cuenta con manejo asíncrono y responsivo.
 * **Spec (reglas derivadas):** montos en centavos enteros; formato MXN `es-MX`; signo y texto accesible según cargo/abono; orden del más reciente al más antiguo y límite de 10; fechas en `America/Mexico_City`; resumen solo del usuario de la sesión; escenario `WALLET_UNAVAILABLE`; sin "Nueva transacción" ante error; cierre de sesión.
 * **Entregables:**
@@ -148,29 +151,29 @@ Features: `AUTH` (login y sesión), `HOME` (dashboard), `CT` (contactos), `TX` (
   * UI: `Skeleton`, `EmptyState`, `ErrorState`, `ButtonLink` y variantes `secondary`/`ghost` de `Button`; `BalanceCard`, `MovementList`, `WalletDashboard`, `WalletSkeleton`, `AppShell` y `LogoutControl`; formateadores de moneda y fecha.
   * Tests: 136 unitarios en total y 28 E2E (escritorio y móvil) con datos, vacío, carga, error con recuperación, CTA, cierre de sesión y ausencia de scroll horizontal.
 
-### PR 5: Feature — Nueva Transacción y Contactos · `SPEC-TX` + `SPEC-CT`
+### PR 5: Feature — Nueva Transacción y Contactos · [`SPEC-TX`](docs/specs/SPEC-TX.md) + [`SPEC-CT`](docs/specs/SPEC-CT.md) 🚧 En revisión
 * **Objetivo:** capturar monto y destinatario y mostrar el resumen antes de confirmar.
-* **Spec (reglas derivadas a documentar):**
-  * `SPEC-TX-R01` monto mayor a cero; `SPEC-TX-R02` monto menor o igual al saldo disponible (igual al saldo está permitido); `SPEC-TX-R03` destinatario obligatorio.
-  * Parseo del monto: máximo 2 decimales; se rechazan texto, vacío y notación científica; se acepta coma o punto como separador decimal.
-  * Contactos: campos obligatorios y formato de cuenta (tarjeta de 16 dígitos o CLABE de 18); duplicados por cuenta; un contacto nuevo queda guardado en favoritos.
-  * Al refrescar el resumen sin borrador en el store se redirige a `/transfer`.
+* **Spec (reglas derivadas):**
+  * Monto mayor a cero y menor o igual al saldo (igual está permitido); destinatario obligatorio y propio del usuario; concepto opcional de hasta 40 caracteres.
+  * Captura con formato de moneda en vivo: centavos enteros convertidos desde la cadena (sin punto flotante); solo dígitos y punto decimal (la coma es separador de miles en `es-MX`); máximo 2 decimales y 7 dígitos enteros; un cambio que exceda los límites se descarta completo.
+  * Contactos por celular (10 dígitos), tarjeta (16, Luhn) o CLABE (18, dígito de control), con máscara por tipo (`2·4·4`, `4·4·4·4`, `3·3·4·4·4`) y solo dígitos; nombre de 3 a 60 caracteres; banco de catálogo; duplicados detectados en el API; la cuenta completa nunca vuelve al cliente.
+  * Borrador en memoria con `idempotencyKey` que se regenera al editar y se descarta (antes de navegar) al cancelar, terminar o cerrar sesión; al refrescar el resumen sin borrador se redirige a `/transfer`.
 * **Entregables:**
-  * Dominio: `parseAmount`, `validateTransfer(draft, balance)` y `contactSchema` (se reubica el archivo existente), con tests `[SPEC-TX-Rxx]` y `[SPEC-CT-Rxx]`.
-  * API: `GET /api/contacts` y `POST /api/contacts` (revalida y guarda en memoria).
-  * Estado: store Zustand `useTransferStore` (borrador: monto, destinatario, `idempotencyKey`) con selectores atómicos y `reset` al finalizar; hook `useTransferFlow`.
-  * Rutas: `/transfer` (monto + selección o alta de contacto) → `/transfer/review` (resumen).
-  * UI: `AmountInput`, `ContactList`, `NewContactForm` y `TransferSummary`.
-  * Tests: reglas, store, hook y formularios; E2E de captura, alta de contacto y bloqueo por cada regla.
+  * Dominio: `sanitizeAmountInput`, `formatAmountInput`, `parseAmountToCents`, `validateTransfer(draft, balance)`, reglas de cuenta (máscara, Luhn, CLABE), `contactInputSchema`, catálogo `BANKS` y `formatMoney` (se mueve desde la UI).
+  * API: `GET /api/contacts` y `POST /api/contacts` (revalida con el mismo esquema, detecta duplicados y guarda en memoria por usuario).
+  * Estado: store Zustand `useTransferStore` (borrador + `idempotencyKey`) con selectores atómicos y `reset`; hooks `useTransferForm`, `useRecipientPicker`, `useCreateContact` y `useTransferReview`; `useLogout` descarta el borrador y recarga el documento.
+  * Rutas: `/transfer` (Partial Prerender: saldo y contactos en servidor) → `/transfer/review` (resumen) dentro de `(private)`.
+  * UI: `MaskedField`, `SegmentedControl` y `SelectField` en el Design System; `ContactList`, `NewContactForm`, `RecipientSection`, `TransferForm`, `TransferSummary` y `TransferSkeleton`.
+  * Tests: reglas, store, hooks y formularios; E2E de formato y cursor, máscaras, alta y duplicado de contacto, bloqueo por cada regla, edición, recarga, cancelación, aislamiento entre usuarios y cierre de sesión con borrador.
 
-### PR 6: Feature — Confirmación, Motor de Caos y Comprobante · `SPEC-CONF`
+### PR 6: Feature — Confirmación, Motor de Caos y Comprobante · [`SPEC-CONF`](docs/specs/SPEC-CONF.md) (spec redactada con el PR 5)
 * **Objetivo:** el núcleo técnico de la PoC: procesar la transferencia simulando los 5 escenarios y reaccionar correctamente a cada uno.
-* **Spec (reglas derivadas a documentar):**
-  * El servidor revalida `SPEC-TX-R01..R03` contra el saldo real antes de procesar.
-  * Mapeo de escenarios: `SUCCESS` → 201 + comprobante; `INSUFFICIENT_FUNDS` → 422 con mensaje descriptivo; `UNKNOWN_ERROR` → 500 con fallback genérico; `NETWORK_ERROR` → 503 simulado (el cliente también trata un fallo de `fetch` como error de red); `TIMEOUT` → el servidor demora más que `NEXT_PUBLIC_TIMEOUT_MS` y el cliente aborta con `AbortController`.
-  * Idempotencia: el header `Idempotency-Key` hace que un reintento devuelva el mismo resultado sin cobrar dos veces (crítico tras un timeout, donde el estado real es incierto).
-  * Solo `SUCCESS` descuenta saldo y registra el movimiento (el Home lo refleja).
-  * Doble envío bloqueado mientras la solicitud está en vuelo.
+* **Spec (reglas derivadas):**
+  * El servidor revalida sesión, `Idempotency-Key`, esquema, destinatario propio y saldo real, en ese orden y antes de cualquier efecto; verificación de saldo y cargo en un bloque atómico.
+  * Idempotencia por usuario y clave con huella del cuerpo: repetición → mismo `201` con `Idempotent-Replayed: true`; misma clave con otro contenido → `422`; solicitudes concurrentes con la misma clave → *single-flight*; solo se almacena el éxito (24 h en memoria).
+  * Mapeo de escenarios: `SUCCESS` → 201 + comprobante; `INSUFFICIENT_FUNDS` → 422 con mensaje descriptivo; `UNKNOWN_ERROR` → 500 con fallback genérico; `NETWORK_ERROR` → 503 simulado (el cliente también trata un fallo de `fetch` como error de red); `TIMEOUT` → el servidor **procesa con éxito** pero responde después de `NEXT_PUBLIC_TIMEOUT_MS`, el cliente aborta y el reintento con la misma clave recupera el comprobante sin cobrar dos veces.
+  * Solo un éxito descuenta saldo y registra el movimiento (el Home lo refleja).
+  * Doble envío bloqueado en tres capas: botón, `inFlight` e idempotencia en servidor.
 * **Entregables:**
   * Dominio: `TransactionResult` como unión discriminada por `status`, de modo que el comprobante solo exista en `SUCCESS` y el error solo en los fallos.
   * API: `POST /api/transactions` con Chaos Engine aleatorio (pesos configurables); el header `x-mock-scenario` fuerza un escenario solo si `ENABLE_TEST_SCENARIOS=true`.

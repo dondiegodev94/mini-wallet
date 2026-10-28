@@ -59,6 +59,18 @@ El login no usa contraseña: basta con el teléfono o el email (se aceptan espac
 | Ana García | `ana@miniwallet.dev` | `5512345678` | Saldo de $12,450.75 y 12 movimientos (se muestran los 10 más recientes) |
 | Luis Pérez | `luis@miniwallet.dev` | `5587654321` | Saldo de $3,000.00 sin movimientos (estado vacío) |
 
+### Contactos de demostración
+
+Ana tiene tres contactos favoritos; Luis no tiene ninguno (estado vacío con el alta de contacto abierta). Los números son ficticios, pero pasan las validaciones de su tipo.
+
+| Contacto | Banco | Tipo | Número |
+|----------|-------|------|--------|
+| Carlos Núñez | Banorte | Tarjeta (Luhn) | `4915 6002 1234 5675` |
+| Luis Pérez | Mini Wallet | Celular | `55 8765 4321` |
+| Mariana Soto | BBVA | CLABE (dígito de control) | `012 180 0012 3456 7899` |
+
+Para dar de alta un contacto nuevo puedes usar, por ejemplo, la tarjeta `4027 6600 1298 7659` o la CLABE `072 180 0198 7654 3216`.
+
 ### Escenarios de error simulados
 
 Disponibles solo con `ENABLE_TEST_SCENARIOS=true`:
@@ -66,7 +78,7 @@ Disponibles solo con `ENABLE_TEST_SCENARIOS=true`:
 | Escenario | Cómo activarlo |
 |-----------|----------------|
 | Login con servicio no disponible | Iniciar sesión con `error@miniwallet.dev` |
-| Home sin servicio de saldo | Enviar el header `x-mock-scenario: WALLET_UNAVAILABLE` (por ejemplo, con una extensión del navegador para modificar headers) |
+| Home o Nueva transacción sin servicio de saldo | Enviar el header `x-mock-scenario: WALLET_UNAVAILABLE` (por ejemplo, con una extensión del navegador para modificar headers) |
 
 ## 📜 Scripts Disponibles
 
@@ -90,6 +102,8 @@ Para mantener el enfoque en la arquitectura del frontend dentro del alcance de l
 4. **Sin regreso a la ruta solicitada:** tras el login siempre se navega al Home, aunque el usuario hubiera intentado abrir otra página privada.
 5. **Historial acotado:** el Home muestra solo los 10 movimientos más recientes; no hay paginación ni detalle de movimiento.
 6. **Moneda y zona horaria fijas:** los montos se muestran en MXN (`es-MX`) y las fechas en `America/Mexico_City`.
+7. **Borrador de transferencia volátil:** el monto, el destinatario y el concepto viven en memoria del navegador; al recargar la página se pierden a propósito.
+8. **Contactos sin edición:** se pueden dar de alta, pero no editar ni eliminar, y no se valida que el banco corresponda al prefijo de la CLABE.
 
 ## 📚 Documentación Adjunta
 
