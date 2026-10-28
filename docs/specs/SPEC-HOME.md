@@ -26,7 +26,7 @@ Pantalla principal tras el login. Muestra el **saldo disponible** y el **nombre 
 | SPEC-HOME-R07 | El resumen siempre corresponde al usuario de la sesión. Sin sesión válida, `GET /api/wallet` responde `401` y la página redirige a `/login` (segunda barrera además del proxy). | Servidor |
 | SPEC-HOME-R08 | Con `ENABLE_TEST_SCENARIOS=true`, el header `x-mock-scenario: WALLET_UNAVAILABLE` simula la caída del servicio de saldo. Sin la variable, el header se ignora. | Servidor |
 | SPEC-HOME-R09 | Si el resumen no se puede cargar, no se muestra el botón "Nueva transacción": sin saldo confirmado no se puede validar una transferencia. | UI |
-| SPEC-HOME-R10 | "Cerrar sesión" elimina la cookie de sesión y navega a `/login`; si la solicitud falla, el usuario permanece en la página y se le informa. | Aplicación |
+| SPEC-HOME-R10 | "Cerrar sesión" elimina la cookie de sesión y navega a `/login` recargando el documento, para que ningún estado del cliente pase al siguiente usuario (ver `SPEC-TX-R14`); si la solicitud falla, el usuario permanece en la página y se le informa. | Aplicación |
 
 ## 4. Criterios de aceptación
 
