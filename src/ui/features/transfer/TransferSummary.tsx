@@ -3,6 +3,7 @@ import type { Contact } from "@/domain/models/contact";
 import { formatMoney } from "@/domain/rules/money";
 import { Card } from "@/ui/components/Card/Card";
 import { ACCOUNT_TYPE_LABEL } from "./accountTypes";
+import { SummaryRow } from "./SummaryRow";
 
 type TransferSummaryProps = {
   amountCents: number;
@@ -11,15 +12,6 @@ type TransferSummaryProps = {
   balanceCents: number;
   actions: ReactNode;
 };
-
-function SummaryRow({ term, children }: { term: string; children: ReactNode }) {
-  return (
-    <div className="flex items-baseline justify-between gap-4 py-3">
-      <dt className="text-sm text-muted-foreground">{term}</dt>
-      <dd className="min-w-0 text-right font-medium break-words text-foreground">{children}</dd>
-    </div>
-  );
-}
 
 export function TransferSummary({
   amountCents,

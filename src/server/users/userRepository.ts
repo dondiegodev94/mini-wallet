@@ -7,12 +7,30 @@ const SEED_USERS: readonly User[] = [
   { id: "usr_luis", name: "Luis Pérez", email: "luis@miniwallet.dev", phone: "5587654321" },
 ];
 
+type UserStore = { users: User[] };
+
+// En globalThis para que las cuentas de prueba creadas por API sean visibles desde el login.
+const globalForUsers = globalThis as typeof globalThis & { miniWalletUsers?: UserStore };
+
+function getStore(): UserStore {
+  globalForUsers.miniWalletUsers ??= { users: [...SEED_USERS] };
+  return globalForUsers.miniWalletUsers;
+}
+
 export const userRepository = {
   async findByIdentifier(identifier: Identifier): Promise<User | undefined> {
-    return SEED_USERS.find((user) => user[identifier.kind] === identifier.value);
+    return getStore().users.find((user) => user[identifier.kind] === identifier.value);
   },
 
   async findById(id: string): Promise<User | undefined> {
-    return SEED_USERS.find((user) => user.id === id);
+    return getStore().users.find((user) => user.id === id);
+  },
+
+  insert(user: User): void {
+    getStore().users.push(user);
+  },
+
+  reset(): void {
+    globalForUsers.miniWalletUsers = { users: [...SEED_USERS] };
   },
 };

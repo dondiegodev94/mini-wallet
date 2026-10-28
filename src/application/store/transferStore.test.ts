@@ -69,3 +69,78 @@ describe("[SPEC-TX-R14] descarte del borrador", () => {
     expect(store().prepareReview(REQUEST).idempotencyKey).not.toBe(first.idempotencyKey);
   });
 });
+
+describe("Envío de la transferencia", () => {
+  const PENDING = { idempotencyKey: "key-1", contact: MARIANA, amountCents: 125050, concept: "Renta" };
+  const TRANSACTION = {
+    id: "tx_1",
+    reference: "MW00000001",
+    amountCents: 125050,
+    concept: "Renta",
+    createdAt: "2026-10-28T18:42:10.000Z",
+    recipient: { name: "Mariana Soto", bank: "BBVA" as const, accountType: "CLABE" as const, maskedAccount: "•••• 7899" },
+    balanceAfterCents: 1120025,
+  };
+
+  it("[SPEC-CONF-R15] al confirmar descarta el borrador editable y queda procesando", () => {
+    store().setAmountInput("1250.50");
+    store().selectContact(MARIANA);
+    store().prepareReview(REQUEST);
+
+    store().beginSubmission(PENDING);
+
+    expect(store()).toMatchObject({ amountInput: "", contact: null, concept: "", review: null });
+    expect(store().submission).toEqual({ phase: "processing", pending: PENDING });
+  });
+
+  it.each(["NETWORK_ERROR", "TIMEOUT"] as const)(
+    "[SPEC-CONF-R20] %s conserva el envío para reintentar",
+    (status) => {
+      store().beginSubmission(PENDING);
+      store().completeSubmission(PENDING.idempotencyKey, { status });
+
+      expect(store().submission).toEqual({ phase: "done", outcome: { status }, pending: PENDING });
+    },
+  );
+
+  it.each([
+    ["SUCCESS", { status: "SUCCESS" as const, transaction: TRANSACTION }],
+    ["INSUFFICIENT_FUNDS", { status: "INSUFFICIENT_FUNDS" as const }],
+    ["UNKNOWN_ERROR", { status: "UNKNOWN_ERROR" as const }],
+  ])("[SPEC-CONF-R20] %s es final y descarta el envío", (_, outcome) => {
+    store().beginSubmission(PENDING);
+    store().completeSubmission(PENDING.idempotencyKey, outcome);
+
+    expect(store().submission).toEqual({ phase: "done", outcome, pending: null });
+  });
+
+  it("ignora la respuesta de un envío que ya no está en curso", () => {
+    store().beginSubmission(PENDING);
+    store().beginSubmission({ ...PENDING, idempotencyKey: "key-2" });
+
+    store().completeSubmission("key-1", { status: "UNKNOWN_ERROR" });
+
+    expect(store().submission?.phase).toBe("processing");
+  });
+
+  it("un resumen nuevo descarta el resultado anterior", () => {
+    store().beginSubmission(PENDING);
+    store().completeSubmission(PENDING.idempotencyKey, { status: "UNKNOWN_ERROR" });
+
+    store().prepareReview(REQUEST);
+
+    expect(store().submission).toBeNull();
+  });
+
+  it("un resumen nuevo conserva un envío que sigue en curso", () => {
+    store().beginSubmission(PENDING);
+    store().prepareReview(REQUEST);
+    expect(store().submission?.phase).toBe("processing");
+  });
+
+  it("[SPEC-CONF-R18] reset descarta también el envío", () => {
+    store().beginSubmission(PENDING);
+    resetTransferDraft();
+    expect(store().submission).toBeNull();
+  });
+});

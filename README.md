@@ -79,6 +79,13 @@ Disponibles solo con `ENABLE_TEST_SCENARIOS=true`:
 |-----------|----------------|
 | Login con servicio no disponible | Iniciar sesión con `error@miniwallet.dev` |
 | Home o Nueva transacción sin servicio de saldo | Enviar el header `x-mock-scenario: WALLET_UNAVAILABLE` (por ejemplo, con una extensión del navegador para modificar headers) |
+| Resultado fijo al confirmar una transferencia | Enviar el header `x-mock-scenario` con `SUCCESS`, `NETWORK_ERROR`, `INSUFFICIENT_FUNDS`, `TIMEOUT` o `UNKNOWN_ERROR` |
+
+### Confirmación de transferencias
+
+Sin el header, cada confirmación obtiene un resultado **al azar**: éxito (60 %), error de red, fondos insuficientes, timeout o error desconocido (10 % cada uno). Todas las pantallas de resultado ofrecen "Volver al inicio"; el error de red y el timeout permiten además reintentar con la misma `Idempotency-Key`, así que un reintento nunca cobra dos veces. En el timeout, el servidor sí aplica el cargo y responde tarde: al reintentar aparece el comprobante original.
+
+El tiempo límite de la confirmación es de **15 s** y se cambia con `NEXT_PUBLIC_TRANSFER_TIMEOUT_MS` en `.env.local` (requiere reiniciar `pnpm dev`, porque Next.js lo incrusta en el bundle). Las pruebas E2E lo bajan a 3 s.
 
 ## 📜 Scripts Disponibles
 
@@ -104,6 +111,8 @@ Para mantener el enfoque en la arquitectura del frontend dentro del alcance de l
 6. **Moneda y zona horaria fijas:** los montos se muestran en MXN (`es-MX`) y las fechas en `America/Mexico_City`.
 7. **Borrador de transferencia volátil:** el monto, el destinatario y el concepto viven en memoria del navegador; al recargar la página se pierden a propósito.
 8. **Contactos sin edición:** se pueden dar de alta, pero no editar ni eliminar, y no se valida que el banco corresponda al prefijo de la CLABE.
+9. **Sin abono al destinatario:** una transferencia descuenta el saldo de quien envía, pero no acredita a un contacto que también sea usuario de Mini Wallet.
+10. **Comprobante sin compartir:** el comprobante se muestra en pantalla; no se descarga ni se comparte, y no hay animaciones, sonido ni feedback háptico.
 
 ## 📚 Documentación Adjunta
 

@@ -1,5 +1,5 @@
 /** @jest-environment node */
-import { MOCK_SCENARIO_HEADER, readMockScenario } from "./scenarios";
+import { MOCK_SCENARIO_HEADER, readMockScenario, readTransferScenario } from "./scenarios";
 
 function headersWith(value: string) {
   return new Headers({ [MOCK_SCENARIO_HEADER]: value });
@@ -28,5 +28,26 @@ describe("[SPEC-HOME-R08] escenarios simulados", () => {
   it("con escenarios deshabilitados ignora el header", () => {
     process.env.ENABLE_TEST_SCENARIOS = "false";
     expect(readMockScenario(headersWith("WALLET_UNAVAILABLE"))).toBeNull();
+  });
+});
+
+describe("[SPEC-CONF-R10] escenarios de la transferencia", () => {
+  it.each(["SUCCESS", "NETWORK_ERROR", "INSUFFICIENT_FUNDS", "TIMEOUT", "UNKNOWN_ERROR"])(
+    "con escenarios habilitados respeta %s",
+    (scenario) => {
+      process.env.ENABLE_TEST_SCENARIOS = "true";
+      expect(readTransferScenario(headersWith(scenario))).toBe(scenario);
+    },
+  );
+
+  it("no mezcla los escenarios del saldo con los de la transferencia", () => {
+    process.env.ENABLE_TEST_SCENARIOS = "true";
+    expect(readTransferScenario(headersWith("WALLET_UNAVAILABLE"))).toBeNull();
+    expect(readMockScenario(headersWith("TIMEOUT"))).toBeNull();
+  });
+
+  it("con escenarios deshabilitados ignora el header", () => {
+    process.env.ENABLE_TEST_SCENARIOS = "false";
+    expect(readTransferScenario(headersWith("TIMEOUT"))).toBeNull();
   });
 });
