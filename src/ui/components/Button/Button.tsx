@@ -2,13 +2,16 @@ import { cva, type VariantProps } from "class-variance-authority";
 import type { ComponentProps } from "react";
 import { cn } from "@/ui/utils/cn";
 
-const buttonVariants = cva(
+export const buttonVariants = cva(
   "inline-flex items-center justify-center gap-2 rounded-lg font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60",
   {
     variants: {
       variant: {
         primary:
           "bg-primary text-primary-foreground hover:bg-primary/85 focus-visible:ring-primary",
+        secondary:
+          "border border-border bg-surface text-foreground hover:bg-muted focus-visible:ring-primary",
+        ghost: "text-foreground hover:bg-muted focus-visible:ring-primary",
       },
       size: {
         md: "h-10 px-4 text-sm",
