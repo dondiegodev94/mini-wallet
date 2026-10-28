@@ -50,6 +50,9 @@ jobs:
 
       - name: Build de producción
         run: pnpm build
+        env:
+          # Las E2E corren sobre este build: el escenario TIMEOUT usa un límite corto (SPEC-CONF-R25).
+          NEXT_PUBLIC_TRANSFER_TIMEOUT_MS: "3000"
 
       - name: Instalar navegador para E2E
         run: pnpm exec playwright install --with-deps chromium
