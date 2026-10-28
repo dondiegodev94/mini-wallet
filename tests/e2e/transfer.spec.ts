@@ -1,43 +1,20 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test, type Locator } from "@playwright/test";
 import { formatCard, uniqueCardNumber } from "./support/accounts";
 import { loginAs } from "./support/session";
-
-function amountField(page: Page) {
-  return page.getByLabel("¿Cuánto quieres enviar?");
-}
+import {
+  amountField,
+  chooseContact,
+  continueButton,
+  createCardContact,
+  newContactForm,
+  openTransfer,
+} from "./support/transfer";
 
 async function placeCaret(input: Locator, position: number) {
   await input.evaluate(
     (element: HTMLInputElement, caret) => element.setSelectionRange(caret, caret),
     position,
   );
-}
-
-function continueButton(page: Page) {
-  return page.getByRole("button", { name: "Continuar" });
-}
-
-function newContactForm(page: Page) {
-  return page.getByRole("form", { name: "Nuevo contacto" });
-}
-
-async function openTransfer(page: Page, identifier = "ana@miniwallet.dev") {
-  await loginAs(page, identifier);
-  await page.goto("/transfer");
-  await expect(page.getByRole("heading", { name: "Nueva transacción" })).toBeVisible();
-}
-
-async function chooseContact(page: Page, name: string) {
-  await page.getByRole("radiogroup", { name: "Contactos favoritos" }).getByText(name).click();
-}
-
-async function createCardContact(page: Page, name: string, card: string) {
-  const form = newContactForm(page);
-  await form.getByLabel("Nombre").fill(name);
-  await form.getByText("Tarjeta", { exact: true }).click();
-  await form.getByLabel("Número de tarjeta").pressSequentially(card);
-  await form.getByLabel("Banco").selectOption("HSBC");
-  await form.getByRole("button", { name: "Guardar contacto" }).click();
 }
 
 test.describe("SPEC-TX — Captura del monto", () => {
