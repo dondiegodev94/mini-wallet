@@ -37,6 +37,15 @@ describe("requestJson", () => {
     });
   });
 
+  it("agrega los headers recibidos", async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ value: 1 }));
+
+    await requestJson("/api/x", { method: "POST", schema, body: {}, headers: { "Idempotency-Key": "k" } });
+
+    const [, init] = fetchMock.mock.calls.at(-1) ?? [];
+    expect(init?.headers).toEqual({ "Content-Type": "application/json", "Idempotency-Key": "k" });
+  });
+
   it("una respuesta exitosa que no cumple el contrato es inesperada", async () => {
     fetchMock.mockResolvedValue(jsonResponse({ value: "uno" }));
 

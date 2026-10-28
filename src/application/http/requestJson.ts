@@ -14,6 +14,7 @@ type RequestOptions<T> = {
   method: "GET" | "POST" | "PUT" | "DELETE";
   schema: z.ZodType<T>;
   body?: unknown;
+  headers?: Record<string, string>;
   timeoutMs?: number;
 };
 
@@ -29,7 +30,7 @@ async function readBody(response: Response): Promise<unknown> {
 
 export async function requestJson<T>(
   url: string,
-  { method, schema, body, timeoutMs = REQUEST_TIMEOUT_MS }: RequestOptions<T>,
+  { method, schema, body, headers, timeoutMs = REQUEST_TIMEOUT_MS }: RequestOptions<T>,
 ): Promise<RequestResult<T>> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -37,7 +38,7 @@ export async function requestJson<T>(
   try {
     const response = await fetch(url, {
       method,
-      headers: body === undefined ? undefined : { "Content-Type": "application/json" },
+      headers: body === undefined ? headers : { "Content-Type": "application/json", ...headers },
       body: body === undefined ? undefined : JSON.stringify(body),
       signal: controller.signal,
     });
