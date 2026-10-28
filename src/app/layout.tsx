@@ -3,7 +3,7 @@ import "./globals.css"; // Solo importa la configuración base de Tailwind y var
 
 export const metadata: Metadata = {
   title: "Mini Wallet Web App",
-  description: "Flujo transaccional SDD - Prueba técnica",
+  description: "PoC de wallet digital: flujo transaccional con datos simulados",
 };
 
 export default function RootLayout({
