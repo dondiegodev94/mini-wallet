@@ -2,8 +2,8 @@ import type { Config } from "tailwindcss";
 
 const config: Config = {
   content: [
-    "./app/**/*.{js,ts,jsx,tsx,mdx}",
-    "./src/ui/**/*.{js,ts,jsx,tsx,mdx}", // Restringido: Tailwind solo actúa sobre la UI
+    "./src/app/**/*.{js,ts,jsx,tsx,mdx}", // <-- CORRECCIÓN AQUÍ (Agregamos src/)
+    "./src/ui/**/*.{js,ts,jsx,tsx,mdx}",  // Restringido: Tailwind solo actúa sobre la UI
   ],
   theme: {
     extend: {
