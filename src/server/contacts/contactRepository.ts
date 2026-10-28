@@ -39,6 +39,18 @@ export const contactRepository = {
     );
   },
 
+  findById(userId: string, contactId: string): StoredContact | undefined {
+    return getStore().contacts.find((contact) => contact.userId === userId && contact.id === contactId);
+  },
+
+  createFromSeed(seedUserId: string, userId: string): void {
+    const copies = SEED_CONTACTS.filter((contact) => contact.userId === seedUserId).map((contact) => ({
+      ...contact,
+      userId,
+    }));
+    getStore().contacts.push(...copies);
+  },
+
   insert(contact: Omit<StoredContact, "id">): StoredContact {
     const stored = { ...contact, id: `ct_${randomUUID().slice(0, 8)}` };
     getStore().contacts.push(stored);

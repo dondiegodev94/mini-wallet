@@ -6,7 +6,7 @@ type WalletAccount = {
   movements: Movement[];
 };
 
-const SEED_ACCOUNTS: Record<string, WalletAccount> = {
+const SEED_ACCOUNTS: Readonly<Record<string, WalletAccount>> = {
   usr_ana: {
     balanceCents: 1245075,
     movements: [
@@ -30,9 +30,49 @@ const SEED_ACCOUNTS: Record<string, WalletAccount> = {
   },
 };
 
+type WalletStore = Map<string, WalletAccount>;
+
+function copyAccount(account: WalletAccount): WalletAccount {
+  return { balanceCents: account.balanceCents, movements: [...account.movements] };
+}
+
+function seedStore(): WalletStore {
+  return new Map(Object.entries(SEED_ACCOUNTS).map(([userId, account]) => [userId, copyAccount(account)]));
+}
+
+// En globalThis para que todas las API Routes (y el recargado en caliente) compartan el mismo saldo.
+const globalForWallet = globalThis as typeof globalThis & { miniWalletAccounts?: WalletStore };
+
+function getStore(): WalletStore {
+  globalForWallet.miniWalletAccounts ??= seedStore();
+  return globalForWallet.miniWalletAccounts;
+}
+
 export const walletRepository = {
   async findByUserId(userId: string): Promise<WalletAccount | undefined> {
-    const account = SEED_ACCOUNTS[userId];
-    return account ? { balanceCents: account.balanceCents, movements: [...account.movements] } : undefined;
+    const account = getStore().get(userId);
+    return account ? copyAccount(account) : undefined;
+  },
+
+  getBalance(userId: string): number | undefined {
+    return getStore().get(userId)?.balanceCents;
+  },
+
+  // Síncrono a propósito: sin `await` entre verificar y descontar, dos cargos simultáneos no dejan saldo negativo.
+  debit(userId: string, movement: Movement): number | null {
+    const account = getStore().get(userId);
+    if (!account || movement.amountCents > account.balanceCents) return null;
+    account.balanceCents -= movement.amountCents;
+    account.movements.unshift(movement);
+    return account.balanceCents;
+  },
+
+  createFromSeed(seedUserId: string, userId: string): void {
+    const seed = SEED_ACCOUNTS[seedUserId];
+    if (seed) getStore().set(userId, copyAccount(seed));
+  },
+
+  reset(): void {
+    globalForWallet.miniWalletAccounts = seedStore();
   },
 };
